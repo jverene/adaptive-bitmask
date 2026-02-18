@@ -1,0 +1,53 @@
+{
+  "name": "adaptive-bitmask",
+  "version": "0.1.0",
+  "description": "Sub-10ms coordination protocol for multi-agent systems. 85× bandwidth reduction through semantic bitmask encoding.",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "multi-agent",
+    "coordination",
+    "bitmask",
+    "protocol",
+    "low-latency",
+    "ai-agents",
+    "semantic-compression",
+    "mas",
+    "llm",
+    "real-time"
+  ],
+  "author": "Harry Jiang",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/harryjiang/adaptive-bitmask"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
