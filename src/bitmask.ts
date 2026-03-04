@@ -145,6 +145,11 @@ export function fromBytes(buf: Uint8Array): Bitmask {
   return mask;
 }
 
+export interface EncodeOptions {
+  /** Throw if any feature is not present in schema mapping. */
+  throwOnUnknownFeatures?: boolean;
+}
+
 /**
  * Encode a set of features into a bitmask given a schema mapping.
  * Features not in the schema are silently ignored.
@@ -152,11 +157,13 @@ export function fromBytes(buf: Uint8Array): Bitmask {
  */
 export function encode(
   features: string[],
-  schema: ReadonlyMap<string, number>
+  schema: ReadonlyMap<string, number>,
+  options: EncodeOptions = {}
 ): { mask: Bitmask; mapped: number; unmapped: number } {
   let mask = 0n;
   let mapped = 0;
   let unmapped = 0;
+  const unknownFeatures: string[] = [];
 
   for (const feature of features) {
     const bit = schema.get(feature);
@@ -165,7 +172,15 @@ export function encode(
       mapped++;
     } else {
       unmapped++;
+      unknownFeatures.push(feature);
     }
+  }
+
+  if (options.throwOnUnknownFeatures && unknownFeatures.length > 0) {
+    const uniqueUnknown = [...new Set(unknownFeatures)];
+    throw new Error(
+      `Unknown features (${uniqueUnknown.length}): ${uniqueUnknown.join(', ')}`
+    );
   }
 
   return { mask, mapped, unmapped };

@@ -120,6 +120,15 @@ describe('Bitmask primitives', () => {
     expect(unmapped).toBe(1);
   });
 
+  it('encode can throw on unknown features in strict mode', () => {
+    const schema = new Map([['a', 0]]);
+    expect(() =>
+      encode(['a', 'missing', 'missing'], schema, {
+        throwOnUnknownFeatures: true,
+      })
+    ).toThrow(/Unknown features/);
+  });
+
   it('decode reverses encoding for non-colliding schema', () => {
     const schema = new Map([
       ['a', 0],

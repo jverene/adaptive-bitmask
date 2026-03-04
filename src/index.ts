@@ -30,6 +30,7 @@
 // ── Bitmask primitives ──
 export {
   type Bitmask,
+  type EncodeOptions,
   BITMASK_WIDTH,
   EMERGENCY_RANGE,
   HIGH_FREQ_RANGE,
@@ -78,6 +79,7 @@ export {
   type ArbiterResult,
   type BitConfidence,
   type Decision,
+  type ArbiterTelemetryEvent,
 } from './arbiter.js';
 
 // ── Coordination ──
@@ -86,6 +88,8 @@ export {
   type CoordinatorConfig,
   type AggregationResult,
   type StaleMessagePolicy,
+  type CoordinatorDropReason,
+  type CoordinatorTelemetryEvent,
 } from './coordinator.js';
 
 // ── Transport envelope ──

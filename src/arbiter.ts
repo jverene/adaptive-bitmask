@@ -35,6 +35,18 @@ export interface ArbiterResult {
 /** Per-bit confidence from aggregation (what fraction of agents set this bit). */
 export type BitConfidence = Map<number, number>;
 
+export type ArbiterTelemetryEvent =
+  | {
+      type: 'decision';
+      result: ArbiterResult;
+    }
+  | {
+      type: 'score_messages';
+      messageCount: number;
+      staleCount: number;
+      result: ArbiterResult;
+    };
+
 export interface ArbiterConfig {
   /** Weight vector: importance of each bit position [0..63]. */
   weights?: number[];
@@ -53,6 +65,8 @@ export interface ArbiterConfig {
    * Default: true.
    */
   emergencyOverride?: boolean;
+  /** Optional telemetry callback for runtime observability. */
+  onTelemetry?: (event: ArbiterTelemetryEvent) => void;
 }
 
 export class Arbiter {
@@ -61,12 +75,14 @@ export class Arbiter {
   private _executeThreshold: number;
   private _synthesizeThreshold: number;
   private _emergencyOverride: boolean;
+  private _onTelemetry: ((event: ArbiterTelemetryEvent) => void) | undefined;
   private _decisionCount = 0;
 
   constructor(config: ArbiterConfig = {}) {
     this._executeThreshold = config.executeThreshold ?? 0.55;
     this._synthesizeThreshold = config.synthesizeThreshold ?? 0.40;
     this._emergencyOverride = config.emergencyOverride ?? true;
+    this._onTelemetry = config.onTelemetry;
 
     // Initialize weights
     this._weights = new Float64Array(BITMASK_WIDTH);
@@ -120,7 +136,7 @@ export class Arbiter {
     if (emergency && this._emergencyOverride) {
       const elapsed = (performance.now() - t0) * 1000; // to microseconds
       this._decisionCount++;
-      return {
+      const result: ArbiterResult = {
         decision: 'REJECT',
         rawScore: 0,
         confidenceScore: 0,
@@ -129,6 +145,8 @@ export class Arbiter {
         hasEmergency: true,
         scoringTimeUs: elapsed,
       };
+      this._emitTelemetry({ type: 'decision', result });
+      return result;
     }
 
     // Weighted linear scoring: ŝ = Σ(w_k · b_k) / Σ(w_k)
@@ -169,7 +187,7 @@ export class Arbiter {
     const elapsed = (performance.now() - t0) * 1000;
     this._decisionCount++;
 
-    return {
+    const result: ArbiterResult = {
       decision,
       rawScore,
       confidenceScore,
@@ -178,6 +196,8 @@ export class Arbiter {
       hasEmergency: emergency,
       scoringTimeUs: elapsed,
     };
+    this._emitTelemetry({ type: 'decision', result });
+    return result;
   }
 
   /**
@@ -228,7 +248,17 @@ export class Arbiter {
     }
 
     const result = this.score(aggregated, confidence);
+    this._emitTelemetry({
+      type: 'score_messages',
+      messageCount: messages.length,
+      staleCount,
+      result,
+    });
     return { ...result, staleCount };
+  }
+
+  private _emitTelemetry(event: ArbiterTelemetryEvent): void {
+    this._onTelemetry?.(event);
   }
 }
 

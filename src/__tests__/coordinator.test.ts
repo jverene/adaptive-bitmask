@@ -107,4 +107,24 @@ describe('Coordinator', () => {
     coordinator.aggregate();
     expect(coordinator.aggregationCount).toBe(2);
   });
+
+  it('emits telemetry for receives, drops, and aggregation', () => {
+    const events: string[] = [];
+    const teleCoordinator = new Coordinator({
+      deadlineMs: 100,
+      schemaVersion: 2,
+      staleMessagePolicy: 'drop',
+      onTelemetry: (event) => events.push(event.type),
+    });
+
+    teleCoordinator.startRound();
+    teleCoordinator.receive(BitmaskMessage.now(setBit(empty(), 0), 1, 2)); // accepted
+    teleCoordinator.receive(BitmaskMessage.now(setBit(empty(), 1), 1, 2)); // replaced
+    teleCoordinator.receive(BitmaskMessage.now(setBit(empty(), 2), 2, 1)); // dropped stale
+    teleCoordinator.aggregate();
+
+    expect(events).toContain('message_accepted');
+    expect(events).toContain('message_dropped');
+    expect(events).toContain('round_aggregated');
+  });
 });
