@@ -13,6 +13,8 @@
 import type { Bitmask } from './bitmask.js';
 
 export const MESSAGE_SIZE_BYTES = 24;
+const UINT32_MAX = 0xFFFFFFFF;
+const UINT64_MAX = (1n << 64n) - 1n;
 
 export interface BitmaskMessageData {
   /** 64-bit feature bitmask. */
@@ -32,6 +34,7 @@ export class BitmaskMessage implements BitmaskMessageData {
   readonly schemaVersion: number;
 
   constructor(data: BitmaskMessageData) {
+    this._assertValid(data);
     this.mask = data.mask;
     this.agentId = data.agentId;
     this.timestampMs = data.timestampMs;
@@ -85,11 +88,13 @@ export class BitmaskMessage implements BitmaskMessageData {
    * Validates length before parsing.
    */
   static deserialize(data: ArrayBuffer | Uint8Array): BitmaskMessage {
-    const buf = data instanceof Uint8Array ? data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) : data;
+    const buf = data instanceof Uint8Array
+      ? data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
+      : data;
 
-    if (buf.byteLength < MESSAGE_SIZE_BYTES) {
+    if (buf.byteLength !== MESSAGE_SIZE_BYTES) {
       throw new Error(
-        `Invalid message: expected ${MESSAGE_SIZE_BYTES} bytes, got ${buf.byteLength}`
+        `Invalid message: expected exactly ${MESSAGE_SIZE_BYTES} bytes, got ${buf.byteLength}`
       );
     }
 
@@ -127,5 +132,29 @@ export class BitmaskMessage implements BitmaskMessageData {
       `BitmaskMessage(agent=${this.agentId}, v=${this.schemaVersion}, ` +
       `bits=${this.mask.toString(2).padStart(64, '0')}, t=${this.timestampMs})`
     );
+  }
+
+  private _assertValid(data: BitmaskMessageData): void {
+    if (typeof data.mask !== 'bigint') {
+      throw new TypeError(`mask must be bigint, got ${typeof data.mask}`);
+    }
+    if (data.mask < 0n || data.mask > UINT64_MAX) {
+      throw new RangeError(`mask out of uint64 range: ${data.mask.toString()}`);
+    }
+    this._assertUint32('agentId', data.agentId);
+    this._assertUint32('schemaVersion', data.schemaVersion);
+    if (!Number.isSafeInteger(data.timestampMs)) {
+      throw new RangeError(
+        `timestampMs must be a safe integer, got ${data.timestampMs}`
+      );
+    }
+  }
+
+  private _assertUint32(field: 'agentId' | 'schemaVersion', value: number): void {
+    if (!Number.isInteger(value) || value < 0 || value > UINT32_MAX) {
+      throw new RangeError(
+        `${field} must be an integer in [0, ${UINT32_MAX}], got ${value}`
+      );
+    }
   }
 }

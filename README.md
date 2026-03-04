@@ -83,6 +83,17 @@ schema.recordActivations(observedFeatures);
 schema.prune();  // retains top-56 by frequency + all emergency features
 ```
 
+**Schema Distribution** — Deterministic schema export/import with fingerprinting for cross-node compatibility checks.
+
+```typescript
+const exported = schema.exportSchema();
+// Send exported JSON through your control plane
+
+const replica = new SchemaManager();
+replica.importSchema(exported);
+// replica.fingerprint === schema.fingerprint
+```
+
 **Binary Serialization** — Messages serialize to exactly 24 bytes. Round-trips through `serialize()` / `deserialize()` for any transport layer.
 
 ```typescript
@@ -103,6 +114,15 @@ const arbiter = createRoboticArbiter();    // obstacle detection weighted 0.30
 
 ```typescript
 import { setBit, popcount, merge, delta, hammingDistance } from 'adaptive-bitmask';
+```
+
+**Stale Schema Policy** — Choose how coordinators handle version-mismatched messages.
+
+```typescript
+const coordinator = new Coordinator({
+  schemaVersion: schema.version,
+  staleMessagePolicy: 'drop', // 'accept' | 'warn' | 'drop'
+});
 ```
 
 ## Performance
@@ -136,15 +156,41 @@ fetch('/coordinate', { body: msg.serialize() });
 // Vercel AI SDK (coming soon)
 ```
 
+Optional helper for control-plane metadata:
+
+```typescript
+import { createEnvelope, decodeEnvelope } from 'adaptive-bitmask';
+
+const envelope = createEnvelope(msg, schema.fingerprint, 'round-42');
+const restored = decodeEnvelope(envelope, schema.fingerprint);
+```
+
+## Benchmarking
+
+```bash
+npm run benchmark
+```
+
+Writes benchmark results to `benchmarks/latest.json`.
+
+```bash
+npm run benchmark:run
+npm run benchmark:check
+```
+
+`benchmark:check` fails if an operation regresses beyond both thresholds:
+- relative: `BENCH_MAX_REGRESSION_PCT` (default `40`)
+- absolute: `BENCH_MAX_ABS_REGRESSION_US` (default `1.5`)
+
 ## API Reference
 
 ### Bitmask Primitives
 
-`empty()` · `setBit(mask, pos)` · `clearBit(mask, pos)` · `testBit(mask, pos)` · `popcount(mask)` · `activeBits(mask)` · `merge(a, b)` · `intersect(a, b)` · `delta(prev, next)` · `hammingDistance(a, b)` · `hasEmergency(mask)` · `toBytes(mask)` · `fromBytes(buf)` · `encode(features, schema)` · `decode(mask, reverseSchema)`
+`empty()` · `setBit(mask, pos)` · `clearBit(mask, pos)` · `testBit(mask, pos)` · `popcount(mask)` · `activeBits(mask)` · `forEachSetBit(mask, fn)` · `merge(a, b)` · `intersect(a, b)` · `delta(prev, next)` · `hammingDistance(a, b)` · `hasEmergency(mask)` · `toBytes(mask)` · `fromBytes(buf)` · `encode(features, schema)` · `decode(mask, reverseSchema)`
 
 ### SchemaManager
 
-`new SchemaManager(config?)` · `.register(feature)` · `.registerAll(features)` · `.recordActivations(features)` · `.prune()` · `.snapshot()` · `.featureToBit` · `.bitToFeatures` · `.version`
+`new SchemaManager(config?)` · `.register(feature)` · `.registerAll(features)` · `.recordActivations(features)` · `.prune()` · `.snapshot()` · `.exportSchema()` · `.importSchema(exported)` · `.fingerprint` · `.featureToBit` · `.bitToFeatures` · `.version`
 
 ### BitmaskMessage
 
@@ -156,7 +202,11 @@ fetch('/coordinate', { body: msg.serialize() });
 
 ### Coordinator
 
-`new Coordinator(config?)` · `.startRound()` · `.receive(msg)` · `.receiveAll(msgs)` · `.aggregate()` · `.schemaVersion`
+`new Coordinator(config?)` · `.startRound()` · `.receive(msg)` · `.receiveAll(msgs)` · `.aggregate()` · `.schemaVersion` (`staleMessagePolicy`: `'accept' | 'warn' | 'drop'`)
+
+### Transport Envelope
+
+`createEnvelope(msg, schemaFingerprint, roundId?)` · `decodeEnvelope(envelope, expectedSchemaFingerprint?)`
 
 ## License
 

@@ -8,9 +8,11 @@
  * - Provides deadline-based collection with timeout
  */
 
-import { type Bitmask, BITMASK_WIDTH } from './bitmask.js';
+import { type Bitmask, forEachSetBit } from './bitmask.js';
 import { BitmaskMessage } from './message.js';
 import type { BitConfidence } from './arbiter.js';
+
+export type StaleMessagePolicy = 'accept' | 'warn' | 'drop';
 
 export interface AggregationResult {
   /** OR-aggregated mask (union of all agent observations). */
@@ -23,6 +25,8 @@ export interface AggregationResult {
   uniqueAgents: number;
   /** Number of schema-stale messages (mismatched version). */
   staleMessages: number;
+  /** Number of stale messages dropped at receive-time. */
+  droppedStaleMessages: number;
   /** Aggregation time in microseconds. */
   aggregationTimeUs: number;
 }
@@ -34,6 +38,8 @@ export interface CoordinatorConfig {
   deadlineMs?: number;
   /** Expected schema version. Messages with different versions are flagged. */
   schemaVersion?: number;
+  /** Policy when schema versions mismatch. Default: 'accept'. */
+  staleMessagePolicy?: StaleMessagePolicy;
 }
 
 export class Coordinator {
@@ -41,12 +47,15 @@ export class Coordinator {
   private _seenAgents = new Set<number>();
   private _schemaVersion: number | undefined;
   private _deadlineMs: number;
+  private _staleMessagePolicy: StaleMessagePolicy;
   private _roundStartTime = 0;
   private _aggregationCount = 0;
+  private _droppedStaleMessages = 0;
 
   constructor(config: CoordinatorConfig = {}) {
     this._deadlineMs = config.deadlineMs ?? 15; // gRPC default from paper
     this._schemaVersion = config.schemaVersion;
+    this._staleMessagePolicy = config.staleMessagePolicy ?? 'accept';
   }
 
   /** Number of messages in current buffer. */
@@ -69,6 +78,7 @@ export class Coordinator {
     this._buffer = [];
     this._seenAgents.clear();
     this._roundStartTime = performance.now();
+    this._droppedStaleMessages = 0;
   }
 
   /**
@@ -81,6 +91,21 @@ export class Coordinator {
       const elapsed = performance.now() - this._roundStartTime;
       if (elapsed > this._deadlineMs) {
         return false; // past deadline
+      }
+    }
+
+    const isStale =
+      this._schemaVersion !== undefined &&
+      message.schemaVersion !== this._schemaVersion;
+    if (isStale) {
+      if (this._staleMessagePolicy === 'drop') {
+        this._droppedStaleMessages++;
+        return false;
+      }
+      if (this._staleMessagePolicy === 'warn') {
+        console.warn(
+          `adaptive-bitmask: stale schema version from agent ${message.agentId} (expected ${this._schemaVersion}, got ${message.schemaVersion})`
+        );
       }
     }
 
@@ -138,11 +163,9 @@ export class Coordinator {
       aggregated |= msg.mask;
 
       // Per-bit vote counting
-      for (let bit = 0; bit < BITMASK_WIDTH; bit++) {
-        if (msg.mask & (1n << BigInt(bit))) {
-          bitVotes.set(bit, (bitVotes.get(bit) ?? 0) + 1);
-        }
-      }
+      forEachSetBit(msg.mask, (bit) => {
+        bitVotes.set(bit, (bitVotes.get(bit) ?? 0) + 1);
+      });
     }
 
     // Convert votes to confidence [0, 1]
@@ -165,6 +188,7 @@ export class Coordinator {
       messageCount,
       uniqueAgents: uniqueAgents.size,
       staleMessages: staleCount,
+      droppedStaleMessages: this._droppedStaleMessages,
       aggregationTimeUs: elapsed,
     };
   }

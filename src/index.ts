@@ -40,6 +40,7 @@ export {
   testBit,
   popcount,
   activeBits,
+  forEachSetBit,
   merge,
   intersect,
   delta,
@@ -58,6 +59,7 @@ export {
   type SchemaConfig,
   type PruneResult,
   type SchemaSnapshot,
+  type ExportedSchema,
 } from './schema.js';
 
 // ── Wire format ──
@@ -83,4 +85,12 @@ export {
   Coordinator,
   type CoordinatorConfig,
   type AggregationResult,
+  type StaleMessagePolicy,
 } from './coordinator.js';
+
+// ── Transport envelope ──
+export {
+  createEnvelope,
+  decodeEnvelope,
+  type TransportEnvelope,
+} from './envelope.js';
