@@ -4,7 +4,9 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const baselinePath = path.join(__dirname, 'baseline.json');
+const baselinePath = process.env.BENCH_BASELINE_PATH
+  ? path.resolve(process.cwd(), process.env.BENCH_BASELINE_PATH)
+  : path.join(__dirname, 'baseline.json');
 const latestPath = path.join(__dirname, 'latest.json');
 
 const maxRegressionPct = Number(process.env.BENCH_MAX_REGRESSION_PCT ?? 40);

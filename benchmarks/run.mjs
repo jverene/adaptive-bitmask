@@ -13,7 +13,9 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const baselinePath = path.join(__dirname, 'baseline.json');
+const baselinePath = process.env.BENCH_BASELINE_PATH
+  ? path.resolve(process.cwd(), process.env.BENCH_BASELINE_PATH)
+  : path.join(__dirname, 'baseline.json');
 const latestPath = path.join(__dirname, 'latest.json');
 
 const ITERATIONS = Number(process.env.BENCH_ITERATIONS ?? 1000);

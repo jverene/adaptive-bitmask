@@ -181,6 +181,7 @@ npm run benchmark:check
 `benchmark:check` fails if an operation regresses beyond both thresholds:
 - relative: `BENCH_MAX_REGRESSION_PCT` (default `40`)
 - absolute: `BENCH_MAX_ABS_REGRESSION_US` (default `1.5`)
+- baseline file: `BENCH_BASELINE_PATH` (default `benchmarks/baseline.json`)
 
 ## API Reference
 

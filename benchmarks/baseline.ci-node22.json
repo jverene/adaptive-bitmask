@@ -1,0 +1,28 @@
+{
+  "generatedAt": "2026-03-04T05:37:54.678Z",
+  "node": "v22.22.0",
+  "iterations": 1000,
+  "warmup": 200,
+  "results": {
+    "encodeFeatures": {
+      "meanUs": 2.0,
+      "p99Us": 5.94
+    },
+    "serializeMessage": {
+      "meanUs": 1.45,
+      "p99Us": 4.8
+    },
+    "aggregate10Agents": {
+      "meanUs": 14.74,
+      "p99Us": 96.8
+    },
+    "scoreWeighted": {
+      "meanUs": 4.57,
+      "p99Us": 19.72
+    },
+    "fullPipelineNoLlm": {
+      "meanUs": 13.19,
+      "p99Us": 99.67
+    }
+  }
+}
