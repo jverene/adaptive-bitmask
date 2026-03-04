@@ -139,6 +139,20 @@ Measured on the protocol simulation (1,000 trials):
 
 The protocol overhead is negligible. LLM inference (6.8ms) accounts for 97.7% of end-to-end latency.
 
+## Migration Notes (`0.1.x` -> `0.2.0-rc.0`)
+
+`BitmaskMessage` validation is now strict:
+- `deserialize()` now requires exactly `24` bytes (not "at least 24")
+- constructor throws for out-of-range `mask`, `agentId`, `schemaVersion`, or unsafe `timestampMs`
+
+Coordinator behavior adds explicit stale handling:
+- new config: `staleMessagePolicy: 'accept' | 'warn' | 'drop'`
+- aggregate output now includes `droppedStaleMessages`
+
+Schema coordination helpers are now available:
+- `schema.exportSchema()` / `schema.importSchema(...)`
+- deterministic `schema.fingerprint` for compatibility checks
+
 ## Transport
 
 This library is **transport-agnostic**. The 24-byte message format works with any transport layer:
