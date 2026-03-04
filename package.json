@@ -1,6 +1,6 @@
 {
   "name": "adaptive-bitmask",
-  "version": "0.1.0",
+  "version": "0.2.0-rc.0",
   "description": "Sub-10ms coordination protocol for multi-agent systems. 85× bandwidth reduction through semantic bitmask encoding.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
