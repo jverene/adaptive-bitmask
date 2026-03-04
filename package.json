@@ -43,7 +43,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/harryjiang/adaptive-bitmask"
+    "url": "https://github.com/jverene/adaptive-bitmask"
   },
   "devDependencies": {
     "tsup": "^8.0.0",
