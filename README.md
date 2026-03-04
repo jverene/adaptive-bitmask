@@ -116,12 +116,40 @@ const arbiter = createRoboticArbiter();    // obstacle detection weighted 0.30
 import { setBit, popcount, merge, delta, hammingDistance } from 'adaptive-bitmask';
 ```
 
+**Strict Encoding Mode** — Fail fast on unknown features to catch schema drift at ingestion time.
+
+```typescript
+const { mask } = encode(features, schema.featureToBit, {
+  throwOnUnknownFeatures: true,
+});
+```
+
 **Stale Schema Policy** — Choose how coordinators handle version-mismatched messages.
 
 ```typescript
 const coordinator = new Coordinator({
   schemaVersion: schema.version,
   staleMessagePolicy: 'drop', // 'accept' | 'warn' | 'drop'
+});
+```
+
+**Telemetry Hooks** — Attach runtime callbacks for coordination and decision metrics.
+
+```typescript
+const coordinator = new Coordinator({
+  onTelemetry: (event) => {
+    if (event.type === 'round_aggregated') {
+      console.log(event.result.aggregationTimeUs);
+    }
+  },
+});
+
+const arbiter = new Arbiter({
+  onTelemetry: (event) => {
+    if (event.type === 'decision') {
+      console.log(event.result.finalScore);
+    }
+  },
 });
 ```
 
@@ -179,6 +207,8 @@ const envelope = createEnvelope(msg, schema.fingerprint, 'round-42');
 const restored = decodeEnvelope(envelope, schema.fingerprint);
 ```
 
+See [examples/transport.ts](/Users/hjiang/Developer/adaptive-bitmask/examples/transport.ts) for end-to-end transport payload patterns.
+
 ## Benchmarking
 
 ```bash
@@ -201,7 +231,7 @@ npm run benchmark:check
 
 ### Bitmask Primitives
 
-`empty()` · `setBit(mask, pos)` · `clearBit(mask, pos)` · `testBit(mask, pos)` · `popcount(mask)` · `activeBits(mask)` · `forEachSetBit(mask, fn)` · `merge(a, b)` · `intersect(a, b)` · `delta(prev, next)` · `hammingDistance(a, b)` · `hasEmergency(mask)` · `toBytes(mask)` · `fromBytes(buf)` · `encode(features, schema)` · `decode(mask, reverseSchema)`
+`empty()` · `setBit(mask, pos)` · `clearBit(mask, pos)` · `testBit(mask, pos)` · `popcount(mask)` · `activeBits(mask)` · `forEachSetBit(mask, fn)` · `merge(a, b)` · `intersect(a, b)` · `delta(prev, next)` · `hammingDistance(a, b)` · `hasEmergency(mask)` · `toBytes(mask)` · `fromBytes(buf)` · `encode(features, schema, options?)` · `decode(mask, reverseSchema)`
 
 ### SchemaManager
 
@@ -213,11 +243,11 @@ npm run benchmark:check
 
 ### Arbiter
 
-`new Arbiter(config?)` · `.score(mask, confidence?)` · `.scoreMessages(messages, version?)` · `.setWeight(pos, weight)` · `createFinancialArbiter()` · `createRoboticArbiter()`
+`new Arbiter(config?)` · `.score(mask, confidence?)` · `.scoreMessages(messages, version?)` · `.setWeight(pos, weight)` · `createFinancialArbiter()` · `createRoboticArbiter()` (`onTelemetry`)
 
 ### Coordinator
 
-`new Coordinator(config?)` · `.startRound()` · `.receive(msg)` · `.receiveAll(msgs)` · `.aggregate()` · `.schemaVersion` (`staleMessagePolicy`: `'accept' | 'warn' | 'drop'`)
+`new Coordinator(config?)` · `.startRound()` · `.receive(msg)` · `.receiveAll(msgs)` · `.aggregate()` · `.schemaVersion` (`staleMessagePolicy`: `'accept' | 'warn' | 'drop'`, `onTelemetry`)
 
 ### Transport Envelope
 

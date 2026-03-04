@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   Arbiter,
   BitmaskMessage,
@@ -100,5 +100,21 @@ describe('Arbiter', () => {
     expect(financial.weights[56]).toBe(0.45);
     expect(financial.weights[0]).toBe(0.25);
     expect(robotic.score(setBit(empty(), 56)).decision).toBe('REJECT');
+  });
+
+  it('emits telemetry events', () => {
+    const onTelemetry = vi.fn();
+    const arbiter = new Arbiter({ onTelemetry });
+
+    arbiter.score(setBit(empty(), 0));
+    arbiter.scoreMessages(
+      [BitmaskMessage.now(setBit(empty(), 1), 1, 1)],
+      1
+    );
+
+    expect(onTelemetry).toHaveBeenCalled();
+    const eventTypes = onTelemetry.mock.calls.map(([event]) => event.type);
+    expect(eventTypes).toContain('decision');
+    expect(eventTypes).toContain('score_messages');
   });
 });

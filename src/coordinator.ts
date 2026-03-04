@@ -13,6 +13,24 @@ import { BitmaskMessage } from './message.js';
 import type { BitConfidence } from './arbiter.js';
 
 export type StaleMessagePolicy = 'accept' | 'warn' | 'drop';
+export type CoordinatorDropReason = 'deadline' | 'stale';
+
+export type CoordinatorTelemetryEvent =
+  | {
+      type: 'message_accepted';
+      agentId: number;
+      stale: boolean;
+      replaced: boolean;
+    }
+  | {
+      type: 'message_dropped';
+      agentId: number;
+      reason: CoordinatorDropReason;
+    }
+  | {
+      type: 'round_aggregated';
+      result: AggregationResult;
+    };
 
 export interface AggregationResult {
   /** OR-aggregated mask (union of all agent observations). */
@@ -40,6 +58,8 @@ export interface CoordinatorConfig {
   schemaVersion?: number;
   /** Policy when schema versions mismatch. Default: 'accept'. */
   staleMessagePolicy?: StaleMessagePolicy;
+  /** Optional telemetry callback for runtime observability. */
+  onTelemetry?: (event: CoordinatorTelemetryEvent) => void;
 }
 
 export class Coordinator {
@@ -48,6 +68,7 @@ export class Coordinator {
   private _schemaVersion: number | undefined;
   private _deadlineMs: number;
   private _staleMessagePolicy: StaleMessagePolicy;
+  private _onTelemetry: ((event: CoordinatorTelemetryEvent) => void) | undefined;
   private _roundStartTime = 0;
   private _aggregationCount = 0;
   private _droppedStaleMessages = 0;
@@ -56,6 +77,7 @@ export class Coordinator {
     this._deadlineMs = config.deadlineMs ?? 15; // gRPC default from paper
     this._schemaVersion = config.schemaVersion;
     this._staleMessagePolicy = config.staleMessagePolicy ?? 'accept';
+    this._onTelemetry = config.onTelemetry;
   }
 
   /** Number of messages in current buffer. */
@@ -90,6 +112,11 @@ export class Coordinator {
     if (this._roundStartTime > 0) {
       const elapsed = performance.now() - this._roundStartTime;
       if (elapsed > this._deadlineMs) {
+        this._emitTelemetry({
+          type: 'message_dropped',
+          agentId: message.agentId,
+          reason: 'deadline',
+        });
         return false; // past deadline
       }
     }
@@ -100,6 +127,11 @@ export class Coordinator {
     if (isStale) {
       if (this._staleMessagePolicy === 'drop') {
         this._droppedStaleMessages++;
+        this._emitTelemetry({
+          type: 'message_dropped',
+          agentId: message.agentId,
+          reason: 'stale',
+        });
         return false;
       }
       if (this._staleMessagePolicy === 'warn') {
@@ -116,11 +148,23 @@ export class Coordinator {
       if (idx !== -1) {
         this._buffer[idx] = message;
       }
+      this._emitTelemetry({
+        type: 'message_accepted',
+        agentId: message.agentId,
+        stale: isStale,
+        replaced: true,
+      });
       return true;
     }
 
     this._seenAgents.add(message.agentId);
     this._buffer.push(message);
+    this._emitTelemetry({
+      type: 'message_accepted',
+      agentId: message.agentId,
+      stale: isStale,
+      replaced: false,
+    });
     return true;
   }
 
@@ -182,7 +226,7 @@ export class Coordinator {
     this._buffer = [];
     this._seenAgents.clear();
 
-    return {
+    const result: AggregationResult = {
       aggregatedMask: aggregated,
       confidence,
       messageCount,
@@ -191,5 +235,13 @@ export class Coordinator {
       droppedStaleMessages: this._droppedStaleMessages,
       aggregationTimeUs: elapsed,
     };
+
+    this._emitTelemetry({ type: 'round_aggregated', result });
+
+    return result;
+  }
+
+  private _emitTelemetry(event: CoordinatorTelemetryEvent): void {
+    this._onTelemetry?.(event);
   }
 }
