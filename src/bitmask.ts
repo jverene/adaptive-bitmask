@@ -16,6 +16,10 @@ export const MED_FREQ_RANGE: [number, number] = [48, 55]; // bits 48-55
 /** A 64-bit bitmask represented as BigInt. */
 export type Bitmask = bigint;
 
+const SINGLE_BIT_TO_POSITION = new Map<bigint, number>(
+  Array.from({ length: BITMASK_WIDTH }, (_, i) => [1n << BigInt(i), i] as const)
+);
+
 /** Create an empty bitmask. */
 export function empty(): Bitmask {
   return 0n;
@@ -59,12 +63,29 @@ export function popcount(mask: Bitmask): number {
 /** Get all set bit positions. */
 export function activeBits(mask: Bitmask): number[] {
   const bits: number[] = [];
-  for (let i = 0; i < BITMASK_WIDTH; i++) {
-    if (mask & (1n << BigInt(i))) {
-      bits.push(i);
-    }
-  }
+  forEachSetBit(mask, (bit) => bits.push(bit));
   return bits;
+}
+
+/** Invoke callback for each set bit position (ascending). */
+export function forEachSetBit(
+  mask: Bitmask,
+  fn: (position: number) => void
+): void {
+  if (mask < 0n) {
+    throw new RangeError('Bitmask must be non-negative');
+  }
+
+  let m = mask;
+  while (m !== 0n) {
+    const leastSignificantBit = m & -m;
+    const position = SINGLE_BIT_TO_POSITION.get(leastSignificantBit);
+    if (position === undefined) {
+      throw new Error(`Invalid 64-bit mask: ${mask.toString()}`);
+    }
+    fn(position);
+    m ^= leastSignificantBit;
+  }
 }
 
 /** OR-merge two bitmasks (union of features). */

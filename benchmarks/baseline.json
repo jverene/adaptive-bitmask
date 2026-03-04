@@ -1,0 +1,28 @@
+{
+  "generatedAt": "2026-02-26T06:23:40.526Z",
+  "node": "v22.14.0",
+  "iterations": 1000,
+  "warmup": 200,
+  "results": {
+    "encodeFeatures": {
+      "meanUs": 0.7332240000000045,
+      "p99Us": 1.583000000000112
+    },
+    "serializeMessage": {
+      "meanUs": 0.4296209999999958,
+      "p99Us": 1.4999999999982805
+    },
+    "aggregate10Agents": {
+      "meanUs": 5.33317499999997,
+      "p99Us": 54.41699999999727
+    },
+    "scoreWeighted": {
+      "meanUs": 2.218415000000044,
+      "p99Us": 5.707999999998492
+    },
+    "fullPipelineNoLlm": {
+      "meanUs": 4.9608089999999825,
+      "p99Us": 32.54200000000296
+    }
+  }
+}

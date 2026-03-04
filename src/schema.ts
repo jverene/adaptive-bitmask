@@ -13,8 +13,13 @@ import {
   EMERGENCY_RANGE,
   HIGH_FREQ_RANGE,
   MED_FREQ_RANGE,
-  type Bitmask,
 } from './bitmask.js';
+
+const MAX_EMERGENCY_FEATURES = EMERGENCY_RANGE[1] - EMERGENCY_RANGE[0] + 1;
+const MAX_REGULAR_FEATURES = HIGH_FREQ_RANGE[1] - HIGH_FREQ_RANGE[0] + 1 + (MED_FREQ_RANGE[1] - MED_FREQ_RANGE[0] + 1);
+const FNV_OFFSET_64 = 0xcbf29ce484222325n;
+const FNV_PRIME_64 = 0x100000001b3n;
+const MASK_64 = (1n << 64n) - 1n;
 
 export interface SchemaConfig {
   /** Maximum features before triggering a prune. Default: BITMASK_WIDTH */
@@ -49,6 +54,19 @@ export interface SchemaSnapshot {
   activeFeatures: number;
   /** Number of emergency features mapped. */
   emergencyCount: number;
+}
+
+export interface ExportedSchema {
+  /** Schema version. */
+  version: number;
+  /** Canonical mapping entries (feature -> bit). */
+  entries: Array<[feature: string, bit: number]>;
+  /** Emergency feature prefix. */
+  emergencyPrefix: string;
+  /** Explicit emergency features. */
+  emergencyFeatures: string[];
+  /** Deterministic fingerprint for compatibility checks. */
+  fingerprint: string;
 }
 
 export class SchemaManager {
@@ -87,6 +105,16 @@ export class SchemaManager {
     return this._featureToBit.size;
   }
 
+  /** Deterministic fingerprint of current schema mapping and version. */
+  get fingerprint(): string {
+    return this._computeFingerprint(
+      this._version,
+      this._featureToBit,
+      this._emergencyPrefix,
+      this._emergencyFeatures
+    );
+  }
+
   /** Check if a feature is an emergency feature. */
   isEmergency(feature: string): boolean {
     return (
@@ -106,6 +134,7 @@ export class SchemaManager {
     // Already registered
     const existing = this._featureToBit.get(feature);
     if (existing !== undefined) return existing;
+    if (this._featureToBit.size >= this._maxFeatures) return -1;
 
     if (this.isEmergency(feature)) {
       return this._registerEmergency(feature);
@@ -149,76 +178,56 @@ export class SchemaManager {
    * Increments schema version.
    */
   prune(): PruneResult {
-    // Collect all known emergency features (from vocab, not just activated)
-    const emergencyList: string[] = [];
-    const regularWithFreq: [string, number][] = [];
+    const knownFeatures = this._collectKnownFeatures();
+    const emergencyList = knownFeatures
+      .filter((feature) => this.isEmergency(feature))
+      .sort((a, b) => this._compareByFrequencyThenName(a, b));
+    const regularList = knownFeatures
+      .filter((feature) => !this.isEmergency(feature))
+      .sort((a, b) => this._compareByFrequencyThenName(a, b));
 
-    // Include emergency features from explicit set
-    for (const feat of this._emergencyFeatures) {
-      emergencyList.push(feat);
-    }
+    const newFeatureToBit = new Map<string, number>();
+    const newBitToFeatures = new Map<number, string[]>();
 
-    // Include emergency features by prefix (from activation history)
-    for (const [feat] of this._activationCounts) {
-      if (this.isEmergency(feat) && !this._emergencyFeatures.has(feat)) {
-        emergencyList.push(feat);
-      }
-    }
-
-    // Also include currently mapped emergency features not yet activated
-    for (const [feat, bit] of this._featureToBit) {
-      if (
-        this.isEmergency(feat) &&
-        !emergencyList.includes(feat)
-      ) {
-        emergencyList.push(feat);
-      }
-    }
-
-    // Collect regular features sorted by frequency
-    for (const [feat, count] of this._activationCounts) {
-      if (!this.isEmergency(feat)) {
-        regularWithFreq.push([feat, count]);
-      }
-    }
-    regularWithFreq.sort((a, b) => b[1] - a[1]); // descending frequency
-
-    // Clear and rebuild mappings
-    const oldFeatures = new Set(this._featureToBit.keys());
-    this._featureToBit.clear();
-    this._bitToFeatures.clear();
-
-    // Map emergency features to bits 56-63
+    // Emergency: bits 56-63, ranked by frequency + stable name tie-break.
     const [emergStart] = EMERGENCY_RANGE;
-    for (let i = 0; i < Math.min(emergencyList.length, 8); i++) {
+    for (let i = 0; i < Math.min(emergencyList.length, MAX_EMERGENCY_FEATURES); i++) {
       const bit = emergStart + i;
-      this._featureToBit.set(emergencyList[i], bit);
-      this._bitToFeatures.set(bit, [emergencyList[i]]);
+      const feature = emergencyList[i];
+      newFeatureToBit.set(feature, bit);
+      newBitToFeatures.set(bit, [feature]);
     }
 
-    // Map top-48 regular features to high-freq bits 0-47
+    // Regular: top 48 to high-frequency range.
     const [highStart] = HIGH_FREQ_RANGE;
-    for (let i = 0; i < Math.min(regularWithFreq.length, 48); i++) {
+    const highCount = HIGH_FREQ_RANGE[1] - HIGH_FREQ_RANGE[0] + 1;
+    for (let i = 0; i < Math.min(regularList.length, highCount); i++) {
       const bit = highStart + i;
-      this._featureToBit.set(regularWithFreq[i][0], bit);
-      this._bitToFeatures.set(bit, [regularWithFreq[i][0]]);
+      const feature = regularList[i];
+      newFeatureToBit.set(feature, bit);
+      newBitToFeatures.set(bit, [feature]);
     }
 
-    // Map next 8 to medium-freq bits 48-55
+    // Regular: next 8 to medium-frequency range.
     const [medStart] = MED_FREQ_RANGE;
-    for (let i = 48; i < Math.min(regularWithFreq.length, 56); i++) {
-      const bit = medStart + (i - 48);
-      this._featureToBit.set(regularWithFreq[i][0], bit);
-      this._bitToFeatures.set(bit, [regularWithFreq[i][0]]);
+    for (let i = highCount; i < Math.min(regularList.length, MAX_REGULAR_FEATURES); i++) {
+      const bit = medStart + (i - highCount);
+      const feature = regularList[i];
+      newFeatureToBit.set(feature, bit);
+      newBitToFeatures.set(bit, [feature]);
     }
 
-    // Determine what got excluded
-    const excludedFeatures: string[] = [];
-    for (let i = 56; i < regularWithFreq.length; i++) {
-      excludedFeatures.push(regularWithFreq[i][0]);
-    }
+    const excludedFeatures = [
+      ...regularList.slice(MAX_REGULAR_FEATURES),
+      ...emergencyList.slice(MAX_EMERGENCY_FEATURES),
+    ];
 
-    this._version++;
+    const mappingChanged = !this._mapsEqual(this._featureToBit, newFeatureToBit);
+    if (mappingChanged) {
+      this._featureToBit = newFeatureToBit;
+      this._bitToFeatures = newBitToFeatures;
+      this._version++;
+    }
 
     return {
       pruned: excludedFeatures.length,
@@ -245,6 +254,65 @@ export class SchemaManager {
       activeFeatures: this._featureToBit.size,
       emergencyCount,
     };
+  }
+
+  /**
+   * Export canonical schema state for distribution.
+   * Entries are sorted by bit (then feature) for deterministic serialization.
+   */
+  exportSchema(): ExportedSchema {
+    const entries = [...this._featureToBit.entries()]
+      .sort((a, b) => {
+        if (a[1] !== b[1]) return a[1] - b[1];
+        return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0;
+      })
+      .map(([feature, bit]) => [feature, bit] as [string, number]);
+
+    return {
+      version: this._version,
+      entries,
+      emergencyPrefix: this._emergencyPrefix,
+      emergencyFeatures: [...this._emergencyFeatures].sort((a, b) =>
+        a < b ? -1 : a > b ? 1 : 0
+      ),
+      fingerprint: this.fingerprint,
+    };
+  }
+
+  /**
+   * Import an exported schema state.
+   * Replaces active mappings and resets activation counters.
+   */
+  importSchema(schema: ExportedSchema): void {
+    this._assertExportedSchema(schema);
+
+    const newFeatureToBit = new Map<string, number>();
+    const newBitToFeatures = new Map<number, string[]>();
+
+    for (const [feature, bit] of schema.entries) {
+      newFeatureToBit.set(feature, bit);
+      newBitToFeatures.set(bit, [feature]);
+    }
+
+    const expectedFingerprint = this._computeFingerprint(
+      schema.version,
+      newFeatureToBit,
+      schema.emergencyPrefix,
+      new Set(schema.emergencyFeatures)
+    );
+    if (schema.fingerprint !== expectedFingerprint) {
+      throw new Error(
+        `Schema fingerprint mismatch: expected ${expectedFingerprint}, got ${schema.fingerprint}`
+      );
+    }
+
+    this._featureToBit = newFeatureToBit;
+    this._bitToFeatures = newBitToFeatures;
+    this._emergencyPrefix = schema.emergencyPrefix;
+    this._emergencyFeatures = new Set(schema.emergencyFeatures);
+    this._activationCounts.clear();
+    this._totalActivations = 0;
+    this._version = schema.version;
   }
 
   /** Get activation frequency for a feature. */
@@ -320,5 +388,85 @@ export class SchemaManager {
 
     // Schema full
     return -1;
+  }
+
+  private _collectKnownFeatures(): string[] {
+    const all = new Set<string>();
+    for (const feature of this._activationCounts.keys()) all.add(feature);
+    for (const feature of this._featureToBit.keys()) all.add(feature);
+    for (const feature of this._emergencyFeatures) all.add(feature);
+    return [...all];
+  }
+
+  private _compareByFrequencyThenName(a: string, b: string): number {
+    const countA = this._activationCounts.get(a) ?? 0;
+    const countB = this._activationCounts.get(b) ?? 0;
+    if (countA !== countB) return countB - countA;
+    if (a < b) return -1;
+    if (a > b) return 1;
+    return 0;
+  }
+
+  private _mapsEqual(a: ReadonlyMap<string, number>, b: ReadonlyMap<string, number>): boolean {
+    if (a.size !== b.size) return false;
+    for (const [feature, bit] of a) {
+      if (b.get(feature) !== bit) return false;
+    }
+    return true;
+  }
+
+  private _assertExportedSchema(schema: ExportedSchema): void {
+    if (!Number.isInteger(schema.version) || schema.version < 0) {
+      throw new RangeError(`Schema version must be a non-negative integer, got ${schema.version}`);
+    }
+    if (typeof schema.fingerprint !== 'string' || schema.fingerprint.length === 0) {
+      throw new TypeError('Schema fingerprint must be a non-empty string');
+    }
+    const seenFeatures = new Set<string>();
+    const seenBits = new Set<number>();
+    for (const [feature, bit] of schema.entries) {
+      if (!feature || typeof feature !== 'string') {
+        throw new TypeError(`Invalid feature name in schema export: ${String(feature)}`);
+      }
+      if (!Number.isInteger(bit) || bit < 0 || bit >= BITMASK_WIDTH) {
+        throw new RangeError(`Invalid bit position in schema export: ${bit}`);
+      }
+      if (seenFeatures.has(feature)) {
+        throw new Error(`Duplicate feature in schema export: ${feature}`);
+      }
+      if (seenBits.has(bit)) {
+        throw new Error(`Duplicate bit in schema export: ${bit}`);
+      }
+      seenFeatures.add(feature);
+      seenBits.add(bit);
+    }
+  }
+
+  private _computeFingerprint(
+    version: number,
+    mapping: ReadonlyMap<string, number>,
+    emergencyPrefix: string,
+    emergencyFeatures: ReadonlySet<string>
+  ): string {
+    const canonicalEntries = [...mapping.entries()]
+      .sort((a, b) => {
+        if (a[1] !== b[1]) return a[1] - b[1];
+        if (a[0] < b[0]) return -1;
+        if (a[0] > b[0]) return 1;
+        return 0;
+      })
+      .map(([feature, bit]) => `${bit}:${feature}`)
+      .join('|');
+    const canonicalEmergency = [...emergencyFeatures]
+      .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+      .join('|');
+    const canonical = `v=${version};ep=${emergencyPrefix};ef=${canonicalEmergency};m=${canonicalEntries}`;
+
+    let hash = FNV_OFFSET_64;
+    for (const char of canonical) {
+      hash ^= BigInt(char.codePointAt(0) ?? 0);
+      hash = (hash * FNV_PRIME_64) & MASK_64;
+    }
+    return hash.toString(16).padStart(16, '0');
   }
 }

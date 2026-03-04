@@ -8,7 +8,7 @@
  * - Sub-millisecond execution (measured: 15μs mean, 26μs p99)
  */
 
-import { type Bitmask, BITMASK_WIDTH, popcount, activeBits, hasEmergency } from './bitmask.js';
+import { type Bitmask, BITMASK_WIDTH, activeBits, forEachSetBit, hasEmergency } from './bitmask.js';
 import type { BitmaskMessage } from './message.js';
 
 /** Decision outcome from the arbiter. */
@@ -216,11 +216,9 @@ export class Arbiter {
       aggregated |= msg.mask;
 
       // Count per-bit votes for confidence
-      for (let bit = 0; bit < BITMASK_WIDTH; bit++) {
-        if (msg.mask & (1n << BigInt(bit))) {
-          bitVotes.set(bit, (bitVotes.get(bit) ?? 0) + 1);
-        }
-      }
+      forEachSetBit(msg.mask, (bit) => {
+        bitVotes.set(bit, (bitVotes.get(bit) ?? 0) + 1);
+      });
     }
 
     // Convert vote counts to confidence [0, 1]

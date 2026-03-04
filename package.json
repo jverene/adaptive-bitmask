@@ -22,6 +22,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
+    "benchmark": "npm run build && npm run benchmark:run",
+    "benchmark:run": "node benchmarks/run.mjs",
+    "benchmark:check": "node benchmarks/check.mjs",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
