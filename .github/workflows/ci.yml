@@ -38,4 +38,7 @@ jobs:
 
       - name: Benchmark Regression Check
         if: matrix.node-version == '22.x'
+        env:
+          BENCH_MAX_REGRESSION_PCT: "160"
+          BENCH_MAX_ABS_REGRESSION_US: "8"
         run: npm run benchmark:run && npm run benchmark:check
