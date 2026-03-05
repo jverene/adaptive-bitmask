@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  Arbiter,
   BitmaskMessage,
   Coordinator,
   SchemaManager,
@@ -79,5 +80,22 @@ describe('Full pipeline integration', () => {
     const nlBaseline = 2048;
     const compressionRatio = nlBaseline / msg.sizeBytes;
     expect(compressionRatio).toBeCloseTo(85.3, 0);
+  });
+
+  it('supports paper-canonical strategy ranking flow', () => {
+    const weights = new Array(64).fill(0);
+    weights[0] = 0.42;
+    weights[1] = 0.30;
+    weights[2] = 0.28;
+    const arbiter = new Arbiter({ weights });
+
+    const result = arbiter.scoreStrategies([
+      { id: 's1', mask: 0b11n }, // bits 0,1
+      { id: 's2', mask: 0b101n }, // bits 0,2
+      { id: 's3', mask: 0b1001n }, // bits 0,3
+    ]);
+
+    expect(result.decision).toBe('SYNTHESIZE');
+    expect(result.synthesizedMask).toBe(1n);
   });
 });

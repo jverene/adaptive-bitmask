@@ -77,6 +77,120 @@ describe('Arbiter', () => {
     expect(result.staleCount).toBe(1);
   });
 
+  it('scoreStrategies executes when lead is above threshold', () => {
+    const weights = new Array(64).fill(0);
+    weights[0] = 1.0;
+    weights[1] = 0.5;
+    const arbiter = new Arbiter({ weights });
+
+    const result = arbiter.scoreStrategies([
+      { id: 'alpha', mask: setBit(empty(), 0) },
+      { id: 'beta', mask: setBit(empty(), 1) },
+    ]);
+
+    expect(result.decision).toBe('EXECUTE');
+    expect(result.selectedStrategyId).toBe('alpha');
+    expect(result.leadScore).toBeGreaterThan(0.15);
+  });
+
+  it('scoreStrategies returns rankings sorted by final score', () => {
+    const weights = new Array(64).fill(0);
+    weights[0] = 1.0;
+    weights[1] = 0.8;
+    weights[2] = 0.2;
+    const arbiter = new Arbiter({ weights });
+
+    const result = arbiter.scoreStrategies([
+      { id: 'mid', mask: setBit(empty(), 1) },
+      { id: 'low', mask: setBit(empty(), 2) },
+      { id: 'high', mask: setBit(empty(), 0) },
+    ]);
+
+    expect(result.rankings.map((r) => r.id)).toEqual(['high', 'mid', 'low']);
+  });
+
+  it('scoreStrategies synthesizes when top-3 are within threshold', () => {
+    const weights = new Array(64).fill(0);
+    weights[0] = 0.42;
+    weights[1] = 0.30;
+    weights[2] = 0.28;
+    const arbiter = new Arbiter({ weights });
+
+    const result = arbiter.scoreStrategies([
+      { id: 's1', mask: setBit(setBit(empty(), 0), 1) },
+      { id: 's2', mask: setBit(setBit(empty(), 0), 2) },
+      { id: 's3', mask: setBit(setBit(empty(), 0), 3) },
+    ]);
+
+    expect(result.decision).toBe('SYNTHESIZE');
+    // strict majority over top-3 leaves only bit 0
+    expect(result.synthesizedMask).toBe(1n);
+  });
+
+  it('scoreStrategies rejects when top score is below threshold', () => {
+    const arbiter = new Arbiter(); // uniform weights
+    const result = arbiter.scoreStrategies([
+      { id: 'weak', mask: setBit(empty(), 0) },
+      { id: 'weaker', mask: setBit(empty(), 1) },
+    ]);
+    expect(result.decision).toBe('REJECT');
+    expect(result.rankings[0].finalScore).toBeLessThan(0.40);
+  });
+
+  it('scoreStrategies uses top-2 synthesis edge case', () => {
+    const weights = new Array(64).fill(0);
+    weights[0] = 0.45;
+    weights[1] = 0.40;
+    weights[4] = 0.15;
+    const arbiter = new Arbiter({ weights });
+
+    const result = arbiter.scoreStrategies([
+      { id: 'left', mask: setBit(setBit(empty(), 0), 4) },
+      { id: 'right', mask: setBit(setBit(empty(), 1), 4) },
+    ]);
+
+    expect(result.decision).toBe('SYNTHESIZE');
+    // top-2 strict majority means bit must exist in both candidates
+    expect(result.synthesizedMask).toBe(1n << 4n);
+  });
+
+  it('scoreStrategies prefers candidate confidence over global confidence', () => {
+    const weights = new Array(64).fill(0);
+    weights[0] = 1.0;
+    const arbiter = new Arbiter({ weights });
+
+    const result = arbiter.scoreStrategies(
+      [
+        {
+          id: 'candidate-conf',
+          mask: setBit(empty(), 0),
+          confidence: new Map([[0, 0.1]]),
+        },
+        { id: 'global-conf', mask: setBit(empty(), 0) },
+      ],
+      {
+        globalConfidence: new Map([[0, 1.0]]),
+      }
+    );
+
+    expect(result.rankings[0].id).toBe('global-conf');
+    expect(result.rankings[1].id).toBe('candidate-conf');
+  });
+
+  it('scoreStrategies falls back to raw score when confidence is absent', () => {
+    const weights = new Array(64).fill(0);
+    weights[0] = 1.0;
+    const arbiter = new Arbiter({ weights });
+
+    const result = arbiter.scoreStrategies([
+      { id: 'raw-only', mask: setBit(empty(), 0) },
+    ]);
+
+    expect(result.rankings[0].rawScore).toBe(1.0);
+    expect(result.rankings[0].confidenceScore).toBe(1.0);
+    expect(result.rankings[0].finalScore).toBe(1.0);
+  });
+
   it('tracks decision count', () => {
     const arbiter = new Arbiter();
     arbiter.score(0n);
@@ -111,10 +225,15 @@ describe('Arbiter', () => {
       [BitmaskMessage.now(setBit(empty(), 1), 1, 1)],
       1
     );
+    arbiter.scoreStrategies([
+      { id: 'one', mask: setBit(empty(), 0) },
+      { id: 'two', mask: setBit(empty(), 1) },
+    ]);
 
     expect(onTelemetry).toHaveBeenCalled();
     const eventTypes = onTelemetry.mock.calls.map(([event]) => event.type);
     expect(eventTypes).toContain('decision');
     expect(eventTypes).toContain('score_messages');
+    expect(eventTypes).toContain('strategy_decision');
   });
 });

@@ -35,6 +35,50 @@ export interface ArbiterResult {
 /** Per-bit confidence from aggregation (what fraction of agents set this bit). */
 export type BitConfidence = Map<number, number>;
 
+export interface StrategyCandidate {
+  /** Stable strategy identifier. */
+  id: string;
+  /** Candidate bitmask for strategy evaluation. */
+  mask: Bitmask;
+  /** Optional per-bit confidence specific to this strategy. */
+  confidence?: BitConfidence;
+}
+
+export interface ScoreStrategiesOptions {
+  /** Minimum lead required for direct execute. Default: 0.15 (15 points). */
+  leadThreshold?: number;
+  /** Minimum top score required to avoid reject. Default: 0.40. */
+  rejectThreshold?: number;
+  /** Fallback confidence map when candidate-level confidence is absent. */
+  globalConfidence?: BitConfidence;
+}
+
+export interface StrategyScore {
+  /** Strategy identifier. */
+  id: string;
+  /** Strategy mask. */
+  mask: Bitmask;
+  /** Raw weighted score ŝ_raw. */
+  rawScore: number;
+  /** Confidence score c. */
+  confidenceScore: number;
+  /** Final composite score ŝ_final = 0.6*ŝ_raw + 0.4*c. */
+  finalScore: number;
+}
+
+export interface StrategyDecisionResult {
+  /** Final decision outcome. */
+  decision: Decision;
+  /** Selected strategy when decision is EXECUTE. */
+  selectedStrategyId?: string;
+  /** Synthesized mask when decision is SYNTHESIZE. */
+  synthesizedMask?: Bitmask;
+  /** Lead score (top1 - top2, or top1 if only one strategy). */
+  leadScore: number;
+  /** Ranked strategy scores (descending finalScore). */
+  rankings: StrategyScore[];
+}
+
 export type ArbiterTelemetryEvent =
   | {
       type: 'decision';
@@ -45,6 +89,10 @@ export type ArbiterTelemetryEvent =
       messageCount: number;
       staleCount: number;
       result: ArbiterResult;
+    }
+  | {
+      type: 'strategy_decision';
+      result: StrategyDecisionResult;
     };
 
 export interface ArbiterConfig {
@@ -255,6 +303,144 @@ export class Arbiter {
       result,
     });
     return { ...result, staleCount };
+  }
+
+  /**
+   * Paper-canonical strategy ranking and decision logic (Section 6).
+   * Uses ŝ_final = 0.6*ŝ_raw + 0.4*c, then applies:
+   * - EXECUTE if lead > 15 points
+   * - SYNTHESIZE if top strategies are within threshold
+   * - REJECT if top score < 40%
+   */
+  scoreStrategies(
+    candidates: StrategyCandidate[],
+    options: ScoreStrategiesOptions = {}
+  ): StrategyDecisionResult {
+    if (candidates.length === 0) {
+      const emptyResult: StrategyDecisionResult = {
+        decision: 'REJECT',
+        leadScore: 0,
+        rankings: [],
+      };
+      this._emitTelemetry({ type: 'strategy_decision', result: emptyResult });
+      return emptyResult;
+    }
+
+    const leadThreshold = options.leadThreshold ?? 0.15;
+    const rejectThreshold = options.rejectThreshold ?? 0.40;
+
+    const rankings = candidates
+      .map((candidate) => {
+        const confidence = candidate.confidence ?? options.globalConfidence;
+        const scored = this._scoreMaskComponents(candidate.mask, confidence);
+        return {
+          id: candidate.id,
+          mask: candidate.mask,
+          rawScore: scored.rawScore,
+          confidenceScore: scored.confidenceScore,
+          finalScore: scored.finalScore,
+        } satisfies StrategyScore;
+      })
+      .sort((a, b) => {
+        if (b.finalScore !== a.finalScore) return b.finalScore - a.finalScore;
+        if (a.id < b.id) return -1;
+        if (a.id > b.id) return 1;
+        return 0;
+      });
+
+    const top1 = rankings[0];
+    const top2 = rankings[1];
+    const leadScore = top2 ? top1.finalScore - top2.finalScore : top1.finalScore;
+
+    let result: StrategyDecisionResult;
+    if (top1.finalScore < rejectThreshold) {
+      result = {
+        decision: 'REJECT',
+        leadScore,
+        rankings,
+      };
+    } else if (leadScore > leadThreshold) {
+      result = {
+        decision: 'EXECUTE',
+        selectedStrategyId: top1.id,
+        leadScore,
+        rankings,
+      };
+    } else {
+      const contenders = rankings
+        .slice(0, Math.min(3, rankings.length))
+        .filter((candidate) => top1.finalScore - candidate.finalScore <= leadThreshold);
+      const contenderMasks = contenders.length >= 2
+        ? contenders.map((candidate) => candidate.mask)
+        : rankings.slice(0, Math.min(2, rankings.length)).map((candidate) => candidate.mask);
+      result = {
+        decision: 'SYNTHESIZE',
+        synthesizedMask: this._synthesizeMask(contenderMasks),
+        leadScore,
+        rankings,
+      };
+    }
+
+    this._decisionCount++;
+    this._emitTelemetry({ type: 'strategy_decision', result });
+    return result;
+  }
+
+  private _scoreMaskComponents(
+    mask: Bitmask,
+    confidence?: BitConfidence
+  ): { rawScore: number; confidenceScore: number; finalScore: number } {
+    if (hasEmergency(mask) && this._emergencyOverride) {
+      return { rawScore: 0, confidenceScore: 0, finalScore: 0 };
+    }
+
+    const active = activeBits(mask);
+
+    let numerator = 0;
+    for (const bit of active) {
+      numerator += this._weights[bit];
+    }
+    const rawScore = this._weightSum > 0 ? numerator / this._weightSum : 0;
+
+    let confidenceScore = rawScore;
+    if (confidence && confidence.size > 0) {
+      let confNumerator = 0;
+      let confDenominator = 0;
+      for (const bit of active) {
+        const conf = confidence.get(bit) ?? 0;
+        confNumerator += conf * this._weights[bit];
+        confDenominator += this._weights[bit];
+      }
+      confidenceScore = confDenominator > 0
+        ? confNumerator / confDenominator
+        : rawScore;
+    }
+
+    return {
+      rawScore,
+      confidenceScore,
+      finalScore: Math.min(1.0, rawScore * 0.6 + confidenceScore * 0.4),
+    };
+  }
+
+  private _synthesizeMask(masks: Bitmask[]): Bitmask {
+    if (masks.length === 0) return 0n;
+
+    const votes = new Map<number, number>();
+    for (const mask of masks) {
+      forEachSetBit(mask, (bit) => {
+        votes.set(bit, (votes.get(bit) ?? 0) + 1);
+      });
+    }
+
+    const requiredVotes = Math.floor(masks.length / 2) + 1;
+    let synthesized = 0n;
+    for (const [bit, count] of votes) {
+      if (count >= requiredVotes) {
+        synthesized |= 1n << BigInt(bit);
+      }
+    }
+    return synthesized;
   }
 
   private _emitTelemetry(event: ArbiterTelemetryEvent): void {

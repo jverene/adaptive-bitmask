@@ -340,11 +340,32 @@ export class SchemaManager {
     this._totalActivations = 0;
   }
 
-  /** Collision rate: (m - 1) / 64 for current feature count. */
+  /**
+   * Collision probability for a specific feature:
+   * P(collision) = 1 - (1 - 1/64)^(m - 1)
+   * where m is active feature count.
+   */
   get theoreticalCollisionRate(): number {
     const m = this._featureToBit.size;
     if (m <= 1) return 0;
-    return (m - 1) / BITMASK_WIDTH;
+    return 1 - Math.pow(1 - 1 / BITMASK_WIDTH, m - 1);
+  }
+
+  /**
+   * Expected excluded feature count under uniform assignment:
+   * E[excluded] = m - 64 * (1 - (1 - 1/64)^m)
+   */
+  expectedExcludedFeatures(featureCount = this._featureToBit.size): number {
+    if (!Number.isInteger(featureCount) || featureCount < 0) {
+      throw new RangeError(
+        `featureCount must be a non-negative integer, got ${featureCount}`
+      );
+    }
+    if (featureCount === 0) return 0;
+    return (
+      featureCount -
+      BITMASK_WIDTH * (1 - Math.pow(1 - 1 / BITMASK_WIDTH, featureCount))
+    );
   }
 
   // ── Private ──

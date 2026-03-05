@@ -81,6 +81,13 @@ const schema = new SchemaManager({ emergencyPrefix: 'EMERGENCY_' });
 schema.registerAll(myFeatures);
 schema.recordActivations(observedFeatures);
 schema.prune();  // retains top-56 by frequency + all emergency features
+
+// Paper-aligned collision math utilities
+const p = schema.theoreticalCollisionRate;
+// p = 1 - (1 - 1/64)^(m - 1), where m = activeFeatureCount
+
+const excluded = schema.expectedExcludedFeatures(80);
+// E[excluded] = m - 64 * (1 - (1 - 1/64)^m)
 ```
 
 **Schema Distribution** — Deterministic schema export/import with fingerprinting for cross-node compatibility checks.
@@ -109,6 +116,21 @@ import { createFinancialArbiter, createRoboticArbiter } from 'adaptive-bitmask';
 const arbiter = createFinancialArbiter();  // emergency bits weighted 0.45
 const arbiter = createRoboticArbiter();    // obstacle detection weighted 0.30
 ```
+
+**Paper-Canonical Strategy Arbitration (Section 6)** — Rank strategy candidates by `s_final = 0.6*s_raw + 0.4*c`, then apply lead/synthesis thresholds.
+
+```typescript
+const result = arbiter.scoreStrategies([
+  { id: 'trend', mask: trendMask, confidence: trendConf },
+  { id: 'mean_revert', mask: mrMask, confidence: mrConf },
+  { id: 'breakout', mask: boMask, confidence: boConf },
+], {
+  leadThreshold: 0.15,
+  rejectThreshold: 0.40,
+});
+```
+
+Legacy compatibility: `arbiter.score(mask, confidence?)` remains unchanged for existing integrations.
 
 **Bitwise Primitives** — Full suite of 64-bit operations using BigInt for precision.
 
@@ -235,7 +257,7 @@ npm run benchmark:check
 
 ### SchemaManager
 
-`new SchemaManager(config?)` · `.register(feature)` · `.registerAll(features)` · `.recordActivations(features)` · `.prune()` · `.snapshot()` · `.exportSchema()` · `.importSchema(exported)` · `.fingerprint` · `.featureToBit` · `.bitToFeatures` · `.version`
+`new SchemaManager(config?)` · `.register(feature)` · `.registerAll(features)` · `.recordActivations(features)` · `.prune()` · `.snapshot()` · `.exportSchema()` · `.importSchema(exported)` · `.expectedExcludedFeatures(featureCount?)` · `.theoreticalCollisionRate` · `.fingerprint` · `.featureToBit` · `.bitToFeatures` · `.version`
 
 ### BitmaskMessage
 
@@ -243,7 +265,7 @@ npm run benchmark:check
 
 ### Arbiter
 
-`new Arbiter(config?)` · `.score(mask, confidence?)` · `.scoreMessages(messages, version?)` · `.setWeight(pos, weight)` · `createFinancialArbiter()` · `createRoboticArbiter()` (`onTelemetry`)
+`new Arbiter(config?)` · `.score(mask, confidence?)` (legacy) · `.scoreStrategies(candidates, options?)` (paper-canonical) · `.scoreMessages(messages, version?)` · `.setWeight(pos, weight)` · `createFinancialArbiter()` · `createRoboticArbiter()` (`onTelemetry`)
 
 ### Coordinator
 
