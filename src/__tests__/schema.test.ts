@@ -121,4 +121,18 @@ describe('SchemaManager', () => {
       restored.importSchema({ ...exported, fingerprint: 'deadbeefdeadbeef' })
     ).toThrow();
   });
+
+  it('theoreticalCollisionRate matches paper formula for m=80', () => {
+    // Simulate m=80 for formula validation by injecting tracked map size.
+    const internal = schema as unknown as { _featureToBit: Map<string, number> };
+    internal._featureToBit = new Map(
+      Array.from({ length: 80 }, (_, i) => [`feat_${i}`, i % 64])
+    );
+    expect(schema.theoreticalCollisionRate).toBeCloseTo(0.712, 3);
+  });
+
+  it('expectedExcludedFeatures matches paper reference points', () => {
+    expect(schema.expectedExcludedFeatures(128)).toBeCloseTo(72.52, 1);
+    expect(schema.expectedExcludedFeatures(80)).toBeCloseTo(34.2, 1);
+  });
 });
