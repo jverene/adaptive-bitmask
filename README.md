@@ -1,6 +1,6 @@
 # adaptive-bitmask
 
-**To view the paper: "Go to files" -> "Adaptive Protocol(5)**
+**To view the paper: "Go to files" -> "Adaptive Protocol(5)"**
 
 Sub-10ms coordination protocol for multi-agent systems. 85× bandwidth reduction through semantic bitmask encoding.
 
