@@ -27,6 +27,53 @@
  * @packageDocumentation
  */
 
+// ── Transport Layer ──
+export {
+  WebSocketTransport,
+  createWebSocketTransport,
+  HttpTransport,
+  createHttpTransport,
+  type WebSocketTransportConfig,
+  type HttpTransportConfig,
+  type ConnectedAgent,
+  type TransportMessage,
+  type HttpRequest,
+  type HttpResponse,
+} from './transports/index.js';
+
+// ── Production Logging & Telemetry ──
+export {
+  LogLevel,
+  Logger,
+  MetricsCollector,
+  HealthChecker,
+  Profiler,
+  createProductionLogger,
+  createMetricsCollector,
+  type LogEntry,
+  type Metrics,
+  type HealthStatus,
+} from './telemetry.js';
+
+// ── Production Error Handling ──
+export {
+  AdaptiveBitmaskError,
+  ValidationError,
+  SchemaValidationError,
+  MessageValidationError,
+  RuntimeError,
+  CoordinatorError,
+  ArbiterError,
+  NetworkError,
+  TimeoutError,
+  SystemError,
+  MemoryError,
+  Validator,
+  CircuitBreaker,
+  TimeoutManager,
+  RecoveryManager,
+} from './errors.js';
+
 // ── High-Level Wrapper ──
 export {
   SharedCognition,

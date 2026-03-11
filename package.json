@@ -1,6 +1,6 @@
 {
   "name": "adaptive-bitmask",
-  "version": "0.2.0-rc.0",
+  "version": "1.0.0-rc.1",
   "description": "Sub-10ms coordination protocol for multi-agent systems. 85× bandwidth reduction through semantic bitmask encoding.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -52,17 +52,28 @@
   },
   "peerDependencies": {
     "ai": ">=4.0.0",
+    "ws": ">=8.0.0",
     "zod": ">=3.0.0"
   },
   "peerDependenciesMeta": {
-    "ai": { "optional": true },
-    "zod": { "optional": true }
+    "ai": {
+      "optional": true
+    },
+    "zod": {
+      "optional": true
+    },
+    "ws": {
+      "optional": true
+    }
   },
   "devDependencies": {
+    "@types/node": "^20.19.37",
+    "@types/ws": "^8.18.1",
     "ai": "^4.0.0",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
     "vitest": "^1.6.0",
+    "ws": "^8.19.0",
     "zod": "^3.23.0"
   },
   "engines": {
