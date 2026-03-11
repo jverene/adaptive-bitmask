@@ -27,6 +27,13 @@
  * @packageDocumentation
  */
 
+// ── High-Level Wrapper ──
+export {
+  SharedCognition,
+  type SharedCognitionConfig,
+  type SwarmTickResult,
+} from './SharedCognition.js';
+
 // ── Bitmask primitives ──
 export {
   type Bitmask,

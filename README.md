@@ -1,61 +1,42 @@
 # adaptive-bitmask
 
-**To view the paper: "Go to files" -> "Adaptive Protocol(5)"**
+**The Sub-10ms Shared Cognition Engine for Multi-Agent Systems.**
 
-Sub-10ms coordination protocol for multi-agent systems. 85× bandwidth reduction through semantic bitmask encoding.
+Achieve an **85x bandwidth reduction** (753 bytes -> exactly 24 bytes) for multi-agent coordination. Instead of shipping bloated JSON payloads between agents, `adaptive-bitmask` uses dynamically-pruned semantic bitmasks to achieve sub-10ms coordination latency.
+
+**To view the paper: "Go to files" -> "Adaptive Protocol(5)"**
 
 ```bash
 npm install adaptive-bitmask
 ```
 
-## What is this?
+## Quick Start (The "Instant Magic" Way)
 
-When you coordinate hundreds of AI agents, each one needs to share its state with a coordinator. Natural language messages are ~2KB each. At 1,000 agents running at 100Hz, that's 200MB/s of bandwidth just for coordination.
-
-`adaptive-bitmask` encodes agent state as 64-bit bitmasks (24 bytes with metadata). Same semantic information, 85× less bandwidth, sub-millisecond processing.
-
-```
-Natural Language:  "Agent observes price trending up with strong momentum and volume spike"  → 753 bytes
-Bitmask Protocol:  0b...0000010100000101  →  24 bytes
-```
-
-## Quick Start
+With the high-level `SharedCognition` wrapper, you can coordinate a massive swarm in just 3 lines of code.
 
 ```typescript
-import {
-  SchemaManager,
-  BitmaskMessage,
-  Coordinator,
-  Arbiter,
-  encode,
-} from 'adaptive-bitmask';
+import { SharedCognition } from 'adaptive-bitmask';
 
-// 1. Define your feature vocabulary
-const schema = new SchemaManager({ emergencyPrefix: 'EMERGENCY_' });
-schema.registerAll([
-  'price_up', 'vol_high', 'momentum', 'breakout',
-  'EMERGENCY_halt',  // pinned to bits 56-63, never pruned
+// 1. Initialize the engine (auto-manages schema, coordinator, and arbiter)
+const cognition = new SharedCognition();
+
+// 2. Feed it your agents' current observations
+const { decision, activeFeatures, latencyMs } = cognition.processSwarmTick([
+  ['price_up', 'volume_spike', 'momentum_strong'], // Agent 1
+  ['price_up', 'breakout_detected'],               // Agent 2
+  ['volume_spike', 'EMERGENCY_halt']               // Agent 3
 ]);
 
-// 2. Encode agent observations as bitmasks
-const { mask } = encode(['price_up', 'momentum'], schema.featureToBit);
-const msg = BitmaskMessage.now(mask, agentId, schema.version);
-// msg.sizeBytes === 24  (vs ~2KB natural language)
-
-// 3. Aggregate across agents
-const coordinator = new Coordinator({ deadlineMs: 15 });
-coordinator.startRound();
-coordinator.receive(msg);
-// ... receive from other agents ...
-const { aggregatedMask, confidence } = coordinator.aggregate();
-
-// 4. Make a decision
-const arbiter = new Arbiter({ executeThreshold: 0.55 });
-const { decision, finalScore } = arbiter.score(aggregatedMask, confidence);
-// decision: 'EXECUTE' | 'SYNTHESIZE' | 'REJECT'
+// 3. That's it. 
+console.log(`Swarm decided to ${decision} in ${latencyMs.toFixed(2)}ms`);
+console.log(`Consensus features:`, activeFeatures);
 ```
 
-## Architecture
+---
+
+## Advanced Usage / Internal Engine
+
+For hardcore engineers who want direct access to the raw mathematical primitives and binary serialization logic.
 
 Based on the [Adaptive Bitmask Protocol paper](https://arxiv.org/abs/TODO) (Jiang, 2026):
 
