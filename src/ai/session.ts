@@ -105,6 +105,19 @@ export class CoordinationSession {
     return { accepted, mapped, unmapped };
   }
 
+  /** Aggregate current buffer without clearing it. */
+  peek(): DecisionResult {
+    const { aggregatedMask, confidence } = this.coordinator.peekAggregate();
+    const aggregatedFeatures = decode(aggregatedMask, this.schema.bitToFeatures);
+    const result = this.arbiter.score(aggregatedMask, confidence);
+    return {
+      decision: result.decision,
+      aggregatedFeatures,
+      confidence,
+      result,
+    };
+  }
+
   /** Aggregate current buffer + score via arbiter. */
   decide(): DecisionResult {
     const { aggregatedMask, confidence } = this.coordinator.aggregate();
