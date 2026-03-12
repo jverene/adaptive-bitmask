@@ -20,6 +20,7 @@ The interactive CLI will:
 - 🏗️  **Scaffold** a new project with best practices
 - 🧬  **Configure** parallel agent execution (Promise.all + p-limit)
 - 🤖  **Optionally** integrate the Vercel AI SDK
+- 🖥️  **Live Dashboard** for real-time control and monitoring
 - ⚡  **Choose** between Cloud, Local, or Simulation modes
 
 Or install manually:
@@ -32,103 +33,43 @@ npm install adaptive-bitmask
 
 - **🚀 Sub-10ms Coordination** - 0.08ms average latency, 1.26ms for 2000 agents
 - **📦 Zero Dependencies** - Core engine has no runtime dependencies
+- **🖥️ Live Dashboard** - Real-time monitoring of agent thinking and consensus
 - **🛡️ Production Hardening** - Error handling, circuit breakers, graceful degradation
 - **📊 Built-in Monitoring** - Health checks, metrics collection, structured logging
 - **🔌 Transport Layers** - WebSocket and HTTP with production features
 - **🔒 Enterprise Security** - Input validation, rate limiting, authentication hooks
 
-## Quick Start (Real LLM Integration)
+## 🤖 Vercel AI SDK Integration
 
-Coordinate a swarm of AI agents with different LLM providers, custom prompts, and your own API keys:
+Seamlessly integrate bitmask coordination into your AI agent workflows.
 
 ```typescript
-import { SharedCognition } from 'adaptive-bitmask';
+import { CoordinationSession } from 'adaptive-bitmask/ai';
+import { openai } from '@ai-sdk/openai';
+import { generateText } from 'ai';
 
-// 1. Initialize the coordination engine
-const cognition = new SharedCognition();
+const session = new CoordinationSession({
+  features: ['price_up', 'volume_spike', 'trend_up'],
+  onLog: (log) => console.log(`[${log.agentId}] ${log.content}`)
+});
 
-// 2. Define your agents with custom prompts and API keys
-const agents = [
-  {
-    name: 'Trading Bot Alpha',
-    llm: 'openai',
-    apiKey: process.env.OPENAI_API_KEY,
-    systemPrompt: `You are a quantitative trading analyst. 
-    Analyze market data and respond ONLY with comma-separated features from:
-    price_up, price_down, volume_spike, momentum_strong, breakout_detected, EMERGENCY_halt
-    Focus on risk management and pattern recognition.`
-  },
-  {
-    name: 'Risk Manager Beta', 
-    llm: 'anthropic',
-    apiKey: process.env.ANTHROPIC_API_KEY,
-    systemPrompt: `You are a risk management specialist.
-    Respond ONLY with comma-separated features from:
-    volatility_high, correlation_break, liquidity_dry, EMERGENCY_market_crash
-    Prioritize capital preservation.`
-  },
-  {
-    name: 'Sentiment Gamma',
-    llm: 'openai', 
-    apiKey: process.env.OPENAI_API_KEY,
-    systemPrompt: `You are a market sentiment analyst.
-    Respond ONLY with comma-separated features from:
-    sentiment_bullish, sentiment_bearish, news_volume_high, social_trending
-    Focus on market psychology indicators.`
-  }
-];
+// 1. Agent reports observation with "thinking"
+session.logThinking('Agent-1', 'Analyzing volatility clusters...');
+session.report('Agent-1', ['price_up', 'volume_spike']);
 
-// 3. Get real LLM observations from each agent
-async function getAgentObservations(agent, marketData) {
-  const response = await fetch(`https://api.${agent.llm}.com/v1/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${agent.apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: agent.llm === 'anthropic' ? 'claude-3-haiku' : 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: agent.systemPrompt },
-        { role: 'user', content: `Analyze: ${marketData}` }
-      ],
-      temperature: 0.3
-    })
-  });
-  
-  const result = await response.json();
-  return result.choices[0].message.content.split(',').map(s => s.trim());
-}
+// 2. Peek at mid-round consensus without clearing buffer
+const { decision: current } = session.peek();
 
-// 4. Run real-time coordination with live market data
-const marketData = "BTC surging 8% in 5 minutes with high volume";
-const observations = await Promise.all(
-  agents.map(agent => getAgentObservations(agent, marketData))
-);
-
-// 5. That's it - real LLM-powered swarm intelligence!
-const { decision, activeFeatures, latencyMs } = cognition.processSwarmTick(observations);
-
-console.log(`🤖 Swarm Decision: ${decision} in ${latencyMs.toFixed(2)}ms`);
-console.log(`📊 Consensus Features:`, activeFeatures);
+// 3. Finalize round
+const { decision, aggregatedFeatures } = session.decide();
 ```
 
-**Environment Setup:**
-```bash
-# Set your API keys
-export OPENAI_API_KEY="your-openai-key"
-export ANTHROPIC_API_KEY="your-anthropic-key"
+**Key Observability:**
+- `session.logThinking(id, msg)`: Capture internal agent reasoning for the dashboard.
+- `session.peek()`: Non-destructive consensus queries mid-round.
+- `onLog`: Stream all events to a database or real-time UI.
 
-# Install the package
-npm install adaptive-bitmask
-```
-
-**Key Benefits:**
-- 🧠 **Real LLM intelligence** - Each agent uses actual AI reasoning
-- 🔑 **Your API keys** - Complete control over authentication
-- 📝 **Custom prompts** - Tailored for each domain (trading, risk, sentiment)
-- 🌐 **Multi-provider** - Mix OpenAI, Anthropic, Google, local models
-- ⚡ **Sub-10ms coordination** - Swarm decision in milliseconds
+---
 
 ## 🌐 Real-World Deployments
 
