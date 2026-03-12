@@ -41,9 +41,23 @@ class ProductionTester {
       arbiter: {
         executeThreshold: 0.55,
         synthesizeThreshold: 0.40,
-        emergencyOverride: true
+        emergencyOverride: true,
+        onTelemetry: (event) => {
+          if (event.type === 'decision' || event.type === 'score_messages') {
+            this.metrics.recordCoordinationLatency(event.result.scoringTimeUs);
+          }
+        }
       }
     });
+
+    // Manual metrics update for high-level processSwarmTick
+    const originalProcessSwarmTick = this.cognition.processSwarmTick.bind(this.cognition);
+    this.cognition.processSwarmTick = (obs) => {
+      const result = originalProcessSwarmTick(obs);
+      this.metrics.incrementMessagesProcessed(); // count the tick
+      this.metrics.updateMemoryUsage();
+      return result;
+    };
 
     // Production transport setup
     this.wsTransport = createWebSocketTransport({
