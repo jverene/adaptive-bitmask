@@ -57,6 +57,12 @@ export class SharedCognition {
   processSwarmTick(agentObservations: string[][]): SwarmTickResult {
     const startMs = performance.now();
 
+    // Auto-pruning: if schema is near capacity (80%), prune based on frequencies
+    // This makes space for new registrations below
+    if (this.schema.activeFeatureCount >= 50) {
+      this.schema.prune();
+    }
+
     // Flatten all features to register/record them if needed
     if (this.autoRegister) {
       const uniqueFeatures = new Set<string>();
