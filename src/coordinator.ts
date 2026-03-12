@@ -189,8 +189,10 @@ export class Coordinator {
       return {
         aggregatedMask: 0n,
         confidence: new Map(),
+        messageCount: 0,
         uniqueAgents: 0,
         staleMessages: 0,
+        droppedStaleMessages: this._droppedStaleMessages,
         aggregationTimeUs: 0,
       };
     }
@@ -225,8 +227,10 @@ export class Coordinator {
     return {
       aggregatedMask: aggregated,
       confidence,
+      messageCount: this._buffer.length,
       uniqueAgents: uniqueAgents.size,
       staleMessages: staleCount,
+      droppedStaleMessages: this._droppedStaleMessages,
       aggregationTimeUs: elapsed,
     };
   }
@@ -273,10 +277,6 @@ export class Coordinator {
     const elapsed = (performance.now() - t0) * 1000; // microseconds
     this._aggregationCount++;
 
-    // Clear buffer for next round
-    this._buffer = [];
-    this._seenAgents.clear();
-
     const result: AggregationResult = {
       aggregatedMask: aggregated,
       confidence,
@@ -286,6 +286,12 @@ export class Coordinator {
       droppedStaleMessages: this._droppedStaleMessages,
       aggregationTimeUs: elapsed,
     };
+
+    // Clear buffer for next round
+    this._buffer = [];
+    this._seenAgents.clear();
+    this._roundStartTime = 0;
+    this._droppedStaleMessages = 0;
 
     this._emitTelemetry({ type: 'round_aggregated', result });
 

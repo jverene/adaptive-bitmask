@@ -4,9 +4,25 @@
 
 Achieve an **85x bandwidth reduction** (753 bytes -> exactly 24 bytes) for multi-agent coordination. Instead of shipping bloated JSON payloads between agents, `adaptive-bitmask` uses dynamically-pruned semantic bitmasks to achieve sub-10ms coordination latency.
 
-**🎉 Production-Ready v1.0.0-rc.1** - [93.3% production test pass rate](./PRODUCTION_ROADMAP.md) with sub-millisecond coordination for 1000+ agents.
+**🎉 Production-Ready v1.0.0-rc.1** - [100% production test pass rate](./PRODUCTION_ROADMAP.md) with sub-millisecond coordination for 1000+ agents.
 
 **To view the paper: "Go to files" -> "Adaptive Protocol(5)"**
+
+## 🏗️ Quick Start
+
+Initialize a new swarm in seconds:
+
+```bash
+npx create-swarm
+```
+
+The interactive CLI will:
+- 🏗️  **Scaffold** a new project with best practices
+- 🧬  **Configure** parallel agent execution (Promise.all + p-limit)
+- 🤖  **Optionally** integrate the Vercel AI SDK
+- ⚡  **Choose** between Cloud, Local, or Simulation modes
+
+Or install manually:
 
 ```bash
 npm install adaptive-bitmask

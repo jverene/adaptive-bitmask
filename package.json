@@ -1,10 +1,13 @@
 {
   "name": "adaptive-bitmask",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Sub-10ms coordination protocol for multi-agent systems. 85× bandwidth reduction through semantic bitmask encoding.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "bin": {
+    "create-swarm": "./dist/cli/index.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -23,7 +26,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsup src/index.ts src/ai/index.ts --format cjs,esm --dts --clean",
+    "build": "tsup src/index.ts src/ai/index.ts src/cli/index.ts --format cjs,esm --dts --clean",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
@@ -71,6 +74,7 @@
     "@types/ws": "^8.18.1",
     "ai": "^4.0.0",
     "tsup": "^8.0.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.4.0",
     "vitest": "^1.6.0",
     "ws": "^8.19.0",
@@ -78,5 +82,9 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.1.0",
+    "picocolors": "^1.1.1"
   }
 }
