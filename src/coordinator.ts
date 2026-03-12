@@ -181,6 +181,57 @@ export class Coordinator {
   }
 
   /**
+   * Peek at current consensus state without clearing the buffer.
+   * Useful for mid-round status queries by AI agents.
+   */
+  peekAggregate(): AggregationResult {
+    if (this._buffer.length === 0) {
+      return {
+        aggregatedMask: 0n,
+        confidence: new Map(),
+        uniqueAgents: 0,
+        staleMessages: 0,
+        aggregationTimeUs: 0,
+      };
+    }
+
+    const t0 = performance.now();
+    let aggregated = 0n;
+    const bitVotes = new Map<number, number>();
+    const uniqueAgents = new Set<number>();
+    let staleCount = 0;
+
+    for (const msg of this._buffer) {
+      uniqueAgents.add(msg.agentId);
+
+      if (this._schemaVersion !== undefined && msg.schemaVersion !== this._schemaVersion) {
+        staleCount++;
+      }
+
+      aggregated |= msg.mask;
+
+      forEachSetBit(msg.mask, (bit) => {
+        bitVotes.set(bit, (bitVotes.get(bit) ?? 0) + 1);
+      });
+    }
+
+    const confidence = new Map<number, number>();
+    for (const [bit, count] of bitVotes) {
+      confidence.set(bit, count / this._buffer.length);
+    }
+
+    const elapsed = (performance.now() - t0) * 1000;
+
+    return {
+      aggregatedMask: aggregated,
+      confidence,
+      uniqueAgents: uniqueAgents.size,
+      staleMessages: staleCount,
+      aggregationTimeUs: elapsed,
+    };
+  }
+
+  /**
    * Aggregate all buffered messages into a consensus result.
    * Clears the buffer after aggregation.
    */

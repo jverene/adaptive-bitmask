@@ -34,17 +34,15 @@ export function createCoordinationTools(session: CoordinationSession) {
       'Query the current aggregated consensus state across all agents.',
     parameters: z.object({}),
     execute: async () => {
-      const { aggregatedMask, confidence, uniqueAgents } =
-        session.coordinator.aggregate();
-      const features = decode(aggregatedMask, session.schema.bitToFeatures);
+      const { aggregatedFeatures, confidence, result } = session.peek();
       const confidenceObj: Record<string, number> = {};
       for (const [bit, conf] of confidence) {
         confidenceObj[String(bit)] = conf;
       }
       return {
-        features,
+        features: aggregatedFeatures,
         confidence: confidenceObj,
-        agentCount: uniqueAgents,
+        agentCount: session.coordinator.bufferedCount,
       };
     },
   });
