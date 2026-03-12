@@ -21,6 +21,14 @@ import type {
   Decision,
 } from '../index.js';
 
+export interface SessionLog {
+  timestamp: number;
+  agentId: string;
+  type: 'observation' | 'decision' | 'thinking' | 'system';
+  content: string;
+  metadata?: any;
+}
+
 export interface CoordinationSessionConfig {
   /** Initial feature vocabulary to register. */
   features: string[];
@@ -32,6 +40,8 @@ export interface CoordinationSessionConfig {
   coordinatorConfig?: Partial<CoordinatorConfig>;
   /** Arbiter configuration overrides. */
   arbiterConfig?: Partial<ArbiterConfig>;
+  /** Optional callback for telemetry/logs. */
+  onLog?: (log: SessionLog) => void;
 }
 
 export interface ReportResult {
@@ -51,6 +61,7 @@ export class CoordinationSession {
   readonly schema: SchemaManager;
   readonly coordinator: Coordinator;
   readonly arbiter: Arbiter;
+  private readonly _onLog?: (log: SessionLog) => void;
 
   private readonly _agentIds = new Map<string, number>();
 
@@ -67,6 +78,12 @@ export class CoordinationSession {
     });
 
     this.arbiter = new Arbiter(config.arbiterConfig);
+    this._onLog = config.onLog;
+  }
+
+  private _log(log: Omit<SessionLog, 'timestamp'>) {
+    const fullLog = { ...log, timestamp: Date.now() };
+    this._onLog?.(fullLog);
   }
 
   /** Deterministic agent ID: FNV-1a hash of name → uint32. */
@@ -84,13 +101,35 @@ export class CoordinationSession {
     return id;
   }
 
+  /** Log internal "thinking" or reasoning from an agent. */
+  logThinking(agentName: string, content: string, metadata?: any): void {
+    this._log({
+      agentId: agentName,
+      type: 'thinking',
+      content,
+      metadata
+    });
+  }
+
   /** Start a new coordination round. Clears the coordinator buffer. */
   startRound(): void {
     this.coordinator.startRound();
+    this._log({
+      agentId: 'system',
+      type: 'system',
+      content: 'Started new coordination round'
+    });
   }
 
   /** Encode features + create message + receive in one call. */
   report(agentName: string, features: string[]): ReportResult {
+    this._log({
+      agentId: agentName,
+      type: 'observation',
+      content: `Reported features: ${features.join(', ')}`,
+      metadata: { features }
+    });
+
     this.schema.recordActivations(features);
     const { mask, mapped, unmapped } = encode(
       features,
@@ -123,6 +162,18 @@ export class CoordinationSession {
     const { aggregatedMask, confidence } = this.coordinator.aggregate();
     const aggregatedFeatures = decode(aggregatedMask, this.schema.bitToFeatures);
     const result = this.arbiter.score(aggregatedMask, confidence);
+
+    this._log({
+      agentId: 'system',
+      type: 'decision',
+      content: `Final Decision: ${result.decision}`,
+      metadata: { 
+        result, 
+        aggregatedFeatures,
+        score: result.finalScore
+      }
+    });
+
     return {
       decision: result.decision,
       aggregatedFeatures,

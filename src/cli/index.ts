@@ -61,6 +61,16 @@ async function main() {
     process.exit(0);
   }
 
+  const useDashboard = await confirm({
+    message: 'Scaffold a Live Dashboard / Control Plane (WebSocket)?',
+    initialValue: true,
+  });
+
+  if (isCancel(useDashboard) || typeof useDashboard !== 'boolean') {
+    cancel('Operation cancelled');
+    process.exit(0);
+  }
+
   const deployment = await select({
     message: 'Choose a deployment strategy:',
     options: [
@@ -108,6 +118,11 @@ async function main() {
     (pkg.dependencies as any)['@ai-sdk/openai'] = 'latest'; // Default provider
   }
 
+  if (useDashboard) {
+    (pkg.dependencies as any)['ws'] = '^8.17.0';
+    (pkg.devDependencies as any)['@types/ws'] = '^8.5.10';
+  }
+
   fs.writeFileSync(path.join(projectPath, 'package.json'), JSON.stringify(pkg, null, 2));
 
   // 2. tsconfig.json
@@ -138,6 +153,7 @@ async function main() {
     intent: intent as string,
     agentCount: parseInt(agentCount as string),
     useAiSdk: useAiSdk as boolean,
+    useDashboard: useDashboard as boolean,
     deployment: deployment as string,
   });
   fs.writeFileSync(path.join(projectPath, 'index.ts'), indexTs);
@@ -146,6 +162,7 @@ async function main() {
 
   outro(`
   ${pc.green('Success!')} Your swarm is ready.
+  ${useDashboard ? pc.blue('🖥️ Dashboard active at: http://localhost:3000') : ''}
   
   ${pc.dim('Next steps:')}
   ${pc.cyan(`cd ${projectName}`)}
@@ -161,9 +178,10 @@ function generateIndexTs(config: {
   intent: string;
   agentCount: number;
   useAiSdk: boolean;
+  useDashboard: boolean;
   deployment: string;
 }) {
-  const { intent, agentCount, useAiSdk, deployment } = config;
+  const { intent, agentCount, useAiSdk, useDashboard, deployment } = config;
 
   let imports = `import 'dotenv/config';
 import { SharedCognition } from 'adaptive-bitmask';
@@ -173,7 +191,95 @@ import pLimit from 'p-limit';`;
     imports += `\nimport { CoordinationSession } from 'adaptive-bitmask/ai';\nimport { openai } from '@ai-sdk/openai';\nimport { generateText } from 'ai';`;
   }
 
+  if (useDashboard) {
+    imports += `\nimport { WebSocketServer } from 'ws';\nimport { createServer } from 'http';`;
+  }
+
   const concurrency = Math.min(agentCount, 10);
+  
+  let dashboardCode = '';
+  if (useDashboard) {
+    dashboardCode = `
+/**
+ * 🖥️ DASHBOARD / CONTROL PLANE
+ * Real-time monitoring of agent "thinking", bandwidth, and coordination.
+ */
+const server = createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/html' });
+  res.end(\`
+    <html>
+      <head>
+        <title>Shared Cognition Dashboard</title>
+        <style>
+          body { font-family: system-ui; background: #0f172a; color: #f8fafc; margin: 0; padding: 2rem; }
+          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+          .card { background: #1e293b; padding: 1.5rem; border-radius: 0.5rem; border: 1px solid #334155; }
+          .log { font-family: monospace; height: 300px; overflow-y: auto; background: #000; padding: 1rem; border-radius: 0.25rem; font-size: 0.8rem; }
+          .agent-thinking { color: #38bdf8; }
+          .decision { color: #4ade80; font-weight: bold; }
+          .feature { display: inline-block; background: #334155; padding: 0.2rem 0.5rem; border-radius: 1rem; margin-right: 0.5rem; font-size: 0.7rem; }
+          h1 { margin-top: 0; color: #e2e8f0; }
+        </style>
+      </head>
+      <body>
+        <h1>🧠 Shared Cognition Dashboard</h1>
+        <div class="grid">
+          <div class="card">
+            <h2>Swarm Status</h2>
+            <div id="status">Waiting for round...</div>
+            <h3>Active Consensus Features</h3>
+            <div id="features"></div>
+          </div>
+          <div class="card">
+            <h2>Real-time Analytics</h2>
+            <p>Coordination Latency: <span id="latency">0</span>ms</p>
+            <p>Total Agents: ${agentCount}</p>
+            <p>Bandwidth Reduction: 85x (Bitmask Protocol)</p>
+          </div>
+        </div>
+        <div class="card" style="margin-top: 1rem;">
+          <h2>Live Agent Logs ("Thinking")</h2>
+          <div id="logs" class="log"></div>
+        </div>
+        <script>
+          const ws = new WebSocket('ws://localhost:3001');
+          const logEl = document.getElementById('logs');
+          const statusEl = document.getElementById('status');
+          const featuresEl = document.getElementById('features');
+          const latencyEl = document.getElementById('latency');
+
+          ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'log') {
+              const div = document.createElement('div');
+              const time = new Date(data.timestamp).toLocaleTimeString();
+              div.innerHTML = \\\`[\${time}] <b>\${data.agentId}:</b> \${data.content}\\\`;
+              if (data.logType === 'thinking') div.className = 'agent-thinking';
+              if (data.logType === 'decision') div.className = 'decision';
+              logEl.prepend(div);
+            } else if (data.type === 'update') {
+              statusEl.innerText = \\\`Round Complete: \${data.decision}\\\`;
+              featuresEl.innerHTML = data.features.map(f => \\\`<span class="feature">\${f}</span>\\\`).join('');
+              latencyEl.innerText = data.latency.toFixed(2);
+            }
+          };
+        </script>
+      </body>
+    </html>
+  \`);
+});
+
+const wss = new WebSocketServer({ port: 3001 });
+server.listen(3000);
+
+function broadcast(data: any) {
+  const msg = JSON.stringify(data);
+  wss.clients.forEach(c => c.send(msg));
+}
+`;
+  }
+
+  const concurrencyLimit = Math.min(agentCount, 10);
   
   let agentLogic = '';
   
@@ -181,15 +287,17 @@ import pLimit from 'p-limit';`;
     agentLogic = `
 /**
  * SIMULATION MODE: Parallel Mock Agent Execution
- * Achieves <10ms coordination by bypassing LLM API calls.
  */
 const mockFeatures = ['price_up', 'volume_spike', 'momentum_strong', 'breakout_detected', 'EMERGENCY_halt'];
 
-async function runAgent(id: number) {
-  // Simulate small random processing delay (1-5ms)
-  await new Promise(r => setTimeout(r, Math.random() * 5));
+async function runAgent(id: number${useAiSdk ? ', session: any' : ''}) {
+  const agentName = \`Agent-\${id}\`;
   
-  // Pick 1-3 random features
+  // Simulate "Thinking"
+  ${useAiSdk ? `session.logThinking(agentName, 'Analyzing market indicators...');` : useDashboard ? `broadcast({ type: 'log', agentId: agentName, logType: 'thinking', content: 'Analyzing market indicators...', timestamp: Date.now() });` : ''}
+  
+  await new Promise(r => setTimeout(r, 10 + Math.random() * 50));
+  
   const count = Math.floor(Math.random() * 3) + 1;
   const features = [];
   for(let i=0; i<count; i++) {
@@ -203,13 +311,17 @@ async function runAgent(id: number) {
  * AI SDK MODE: Parallel LLM Execution
  */
 async function runAgent(id: number, session: any) {
+  const agentName = \`Agent-\${id}\`;
+  session.logThinking(agentName, 'Prompting LLM for observation...');
+  
   const { text } = await generateText({
     model: openai('gpt-4o-mini'),
     system: \`You are a \${intent} agent. Analyze the situation and output 1-3 relevant features from the schema as comma-separated strings.\`,
     prompt: 'Current state analysis...',
   });
   
-  return text.split(',').map(f => f.trim());
+  const features = text.split(',').map(f => f.trim());
+  return features;
 }`;
   } else {
     agentLogic = `
@@ -217,7 +329,8 @@ async function runAgent(id: number, session: any) {
  * BASIC MODE: Parallel fetch execution
  */
 async function runAgent(id: number) {
-  // Implementation for ${deployment} fetching...
+  const agentName = \`Agent-\${id}\`;
+  ${useDashboard ? `broadcast({ type: 'log', agentId: agentName, logType: 'thinking', content: 'Fetching data...', timestamp: Date.now() });` : ''}
   return ['feature_a', 'feature_b'];
 }`;
   }
@@ -226,43 +339,58 @@ async function runAgent(id: number) {
 
 const intent = "${intent}";
 const agentCount = ${agentCount};
-const limit = pLimit(${concurrency});
+const limit = pLimit(${concurrencyLimit});
+
+${dashboardCode}
 
 ${useAiSdk ? `const session = new CoordinationSession({
   features: ['price_up', 'volume_spike', 'trend_up', 'volatility_high'],
+  onLog: (log) => {
+    ${useDashboard ? "broadcast({ type: 'log', agentId: log.agentId, logType: log.type, content: log.content, timestamp: log.timestamp });" : "console.log(`[${new Date(log.timestamp).toLocaleTimeString()}] ${log.agentId}: ${log.content}`);"}
+  }
 });` : `const cognition = new SharedCognition();`}
 
 ${agentLogic}
 
 async function runSwarm() {
   console.log(\`🚀 Starting swarm: "\${intent}" with \${agentCount} agents...\`);
-  const start = performance.now();
+  
+  while (true) {
+    const start = performance.now();
+    ${useAiSdk ? "session.startRound();" : ""}
 
-  // Parallel Execution with Concurrency Limit
-  const agentTasks = Array.from({ length: agentCount }, (_, i) => 
-    limit(() => runAgent(i${useAiSdk ? ', session' : ''}))
-  );
+    const agentTasks = Array.from({ length: agentCount }, (_, i) => 
+      limit(() => runAgent(i${useAiSdk ? ', session' : ''}))
+    );
 
-  const allObservations = await Promise.all(agentTasks);
-  const llmTime = performance.now() - start;
+    const allObservations = await Promise.all(agentTasks);
+    const llmTime = performance.now() - start;
 
-  // Bitmask Coordination (The Sub-10ms Part)
-  const coordStart = performance.now();
-  ${useAiSdk ? `
-  allObservations.forEach((obs, i) => session.report(\`agent-\${i}\`, obs));
-  const { decision, result, aggregatedFeatures } = session.decide();
-  const finalScore = result.finalScore;
-  ` : `
-  const { decision, finalScore, activeFeatures: aggregatedFeatures } = cognition.processSwarmTick(allObservations);
-  `}
-  const coordTime = performance.now() - coordStart;
+    const coordStart = performance.now();
+    ${useAiSdk ? `
+    allObservations.forEach((obs, i) => session.report(\`agent-\${i}\`, obs));
+    const { decision, result, aggregatedFeatures } = session.decide();
+    const finalScore = result.finalScore;
+    ` : `
+    const { decision, finalScore, activeFeatures: aggregatedFeatures } = cognition.processSwarmTick(allObservations);
+    `}
+    const coordTime = performance.now() - coordStart;
 
-  console.log('\\n--- Coordination Round Complete ---');
-  console.log(\`Decision:       \${decision}\`);
-  console.log(\`Final Score:    \${(finalScore * 100).toFixed(1)}%\`);
-  console.log(\`Consensus:      \${aggregatedFeatures.join(', ')}\`);
-  console.log(\`LLM Parallel:   \${llmTime.toFixed(2)}ms\`);
-  console.log(\`Bitmask Latency:\${coordTime.toFixed(2)}ms (Surgical)\`);
+    ${useDashboard ? `
+    broadcast({ 
+      type: 'update', 
+      decision, 
+      features: aggregatedFeatures, 
+      latency: coordTime,
+      totalLatency: performance.now() - start
+    });
+    ` : ""}
+
+    console.log(\`\\nDecision: \${decision} (Coord: \${coordTime.toFixed(2)}ms, Total: \${(performance.now() - start).toFixed(2)}ms)\`);
+    
+    // Pause between ticks
+    await new Promise(r => setTimeout(r, 2000));
+  }
 }
 
 runSwarm().catch(console.error);
