@@ -91,6 +91,7 @@ export class CoordinationSession {
 
   /** Encode features + create message + receive in one call. */
   report(agentName: string, features: string[]): ReportResult {
+    this.schema.recordActivations(features);
     const { mask, mapped, unmapped } = encode(
       features,
       this.schema.featureToBit,
