@@ -2,12 +2,13 @@
 
 **The Sub-10ms Shared Cognition Engine for Multi-Agent Systems.**
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18990535.svg)](https://doi.org/10.5281/zenodo.18990535)
+
 Achieve an **85x bandwidth reduction** (753 bytes -> exactly 24 bytes) for multi-agent coordination. Instead of shipping bloated JSON payloads between agents, `adaptive-bitmask` uses dynamically-pruned semantic bitmasks to achieve sub-10ms coordination latency.
 
 **🎉 Production-Ready v1.0.0-rc.1** - [100% production test pass rate](./PRODUCTION_ROADMAP.md) with sub-millisecond coordination for 1000+ agents.
 
 **To view the paper: "Go to files" -> "Adaptive Protocol(5)"**
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18990535.svg)](https://doi.org/10.5281/zenodo.18990535)
 
 ## 🏗️ Quick Start
 
@@ -258,7 +259,7 @@ await RecoveryManager.withRetry(
 
 For hardcore engineers who want direct access to the raw mathematical primitives and binary serialization logic.
 
-Based on the [Adaptive Bitmask Protocol paper](https://arxiv.org/abs/TODO) (Jiang, 2026):
+Based on the [Adaptive Bitmask Protocol paper](https://zenodo.org/records/18990535) (Jiang, 2026):
 
 ```
 Layer 0: SchemaManager    ← Feature-to-bit mappings, frequency pruning
