@@ -7,6 +7,7 @@ Achieve an **85x bandwidth reduction** (753 bytes -> exactly 24 bytes) for multi
 **🎉 Production-Ready v1.0.0-rc.1** - [100% production test pass rate](./PRODUCTION_ROADMAP.md) with sub-millisecond coordination for 1000+ agents.
 
 **To view the paper: "Go to files" -> "Adaptive Protocol(5)"**
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18990535.svg)](https://doi.org/10.5281/zenodo.18990535)
 
 ## 🏗️ Quick Start
 
