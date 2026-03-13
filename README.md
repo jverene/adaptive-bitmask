@@ -1,107 +1,99 @@
 # adaptive-bitmask
 
-**The Sub-10ms Shared Cognition Engine for Multi-Agent Systems.**
+`adaptive-bitmask` is a low-latency coordination protocol for multi-agent systems. It reduces coordination payloads to a fixed 24-byte binary format using dynamically pruned semantic bitmasks, with published benchmarks showing up to an 85x reduction versus JSON-based messaging.
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18990535.svg)](https://doi.org/10.5281/zenodo.18990535)
+Current package version: `1.1.1`.
 
-Achieve an **85x bandwidth reduction** (753 bytes -> exactly 24 bytes) for multi-agent coordination. Instead of shipping bloated JSON payloads between agents, `adaptive-bitmask` uses dynamically-pruned semantic bitmasks to achieve sub-10ms coordination latency.
+## Overview
 
-**🎉 Production-Ready v1.0.0-rc.1** - [100% production test pass rate](./PRODUCTION_ROADMAP.md) with sub-millisecond coordination for 1000+ agents.
+- Fixed 24-byte wire format for coordination messages
+- Sub-10ms coordination targets for multi-agent workloads
+- Core package with no runtime dependencies
+- Optional AI workflow integration through `adaptive-bitmask/ai`
+- Built-in support for telemetry, transport helpers, and schema versioning
 
-**To view the paper: "Go to files" -> "Adaptive Protocol(5)"**
+See `PRODUCTION_ROADMAP.md` for production validation details.
 
-## 🏗️ Quick Start
+## Installation
 
-Initialize a new swarm in seconds:
+Create a new project with the CLI:
 
 ```bash
 npx create-swarm
 ```
 
-The interactive CLI will:
-- 🏗️  **Scaffold** a new project with best practices
-- 🧬  **Configure** parallel agent execution (Promise.all + p-limit)
-- 🤖  **Optionally** integrate the Vercel AI SDK
-- 🖥️  **Live Dashboard** for real-time control and monitoring
-- ⚡  **Choose** between Cloud, Local, or Simulation modes
+The CLI can scaffold a project, configure parallel agent execution, add optional Vercel AI SDK integration, and set up a live dashboard.
 
-Or install manually:
+Install the package directly:
 
 ```bash
 npm install adaptive-bitmask
 ```
 
-## ✨ Production Features
-
-- **🚀 Sub-10ms Coordination** - 0.08ms average latency, 1.26ms for 2000 agents
-- **📦 Zero Dependencies** - Core engine has no runtime dependencies
-- **🖥️ Live Dashboard** - Real-time monitoring of agent thinking and consensus
-- **🛡️ Production Hardening** - Error handling, circuit breakers, graceful degradation
-- **📊 Built-in Monitoring** - Health checks, metrics collection, structured logging
-- **🔌 Transport Layers** - WebSocket and HTTP with production features
-- **🔒 Enterprise Security** - Input validation, rate limiting, authentication hooks
-
-## 🤖 Vercel AI SDK Integration
-
-Seamlessly integrate bitmask coordination into your AI agent workflows.
+## Quick Start
 
 ```typescript
 import { CoordinationSession } from 'adaptive-bitmask/ai';
-import { openai } from '@ai-sdk/openai';
-import { generateText } from 'ai';
 
 const session = new CoordinationSession({
   features: ['price_up', 'volume_spike', 'trend_up'],
-  onLog: (log) => console.log(`[${log.agentId}] ${log.content}`)
+  onLog: (log) => console.log(`[${log.agentId}] ${log.content}`),
 });
 
-// 1. Agent reports observation with "thinking"
 session.logThinking('Agent-1', 'Analyzing volatility clusters...');
 session.report('Agent-1', ['price_up', 'volume_spike']);
 
-// 2. Peek at mid-round consensus without clearing buffer
 const { decision: current } = session.peek();
-
-// 3. Finalize round
 const { decision, aggregatedFeatures } = session.decide();
 ```
 
-**Key Observability:**
-- `session.logThinking(id, msg)`: Capture internal agent reasoning for the dashboard.
-- `session.peek()`: Non-destructive consensus queries mid-round.
-- `onLog`: Stream all events to a database or real-time UI.
+Key observability hooks:
 
----
+- `session.logThinking(id, msg)` captures agent reasoning for dashboards or logs.
+- `session.peek()` inspects mid-round consensus without clearing the buffer.
+- `onLog` streams coordination events to a UI, logger, or database sink.
 
-## 🌐 Real-World Deployments
+## Features
+
+- Sub-10ms coordination with benchmarked averages as low as `0.08ms`
+- Zero runtime dependencies in the core engine
+- Live dashboard support for monitoring agent reasoning and consensus
+- Production-oriented error handling, circuit breakers, and graceful degradation
+- Built-in health checks, metrics collection, and structured logging
+- WebSocket and HTTP transport layers
+- Security-oriented hooks for validation, rate limiting, and authentication
+
+## Deployment Examples
 
 ### High-Frequency Trading
+
 ```typescript
-// 1000 trading bots coordinating in 0.66ms
 const tradingCognition = new SharedCognition({
-  arbiter: { executeThreshold: 0.60, emergencyOverride: true }
+  arbiter: { executeThreshold: 0.60, emergencyOverride: true },
 });
 ```
 
 ### IoT Sensor Networks
+
 ```typescript
-// 200 sensors reaching consensus in 0.20ms
 const iotCognition = new SharedCognition({
-  schema: { emergencyPrefix: 'EMERGENCY_' }
+  schema: { emergencyPrefix: 'EMERGENCY_' },
 });
 ```
 
 ### Chat Moderation Systems
+
 ```typescript
-// 150 moderation agents deciding in 0.07ms
 const moderationCognition = new SharedCognition({
-  arbiter: { executeThreshold: 0.70 }
+  arbiter: { executeThreshold: 0.70 },
 });
 ```
 
-## 🔧 Production Deployment
+## Deployment
 
 ### Docker
+
 ```dockerfile
 FROM node:20-alpine
 WORKDIR /app
@@ -112,6 +104,7 @@ CMD ["node", "dist/index.js"]
 ```
 
 ### Kubernetes
+
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -125,83 +118,119 @@ spec:
   template:
     spec:
       containers:
-      - name: adaptive-bitmask
-        image: adaptive-bitmask:latest
-        ports:
-        - containerPort: 8080  # WebSocket
-        - containerPort: 8081  # HTTP API
-        resources:
-          requests:
-            memory: "512Mi"
-            cpu: "250m"
-          limits:
-            memory: "1Gi"
-            cpu: "500m"
+        - name: adaptive-bitmask
+          image: adaptive-bitmask:latest
+          ports:
+            - containerPort: 8080
+            - containerPort: 8081
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
 ```
 
 ### Monitoring
-```bash
-# Health check
-curl http://localhost:8081/api/health
 
-# Metrics endpoint
+```bash
+curl http://localhost:8081/api/health
 curl http://localhost:8081/api/metrics
 ```
 
-## 📊 Performance Benchmarks
+## Performance Benchmarks
+
+### Coordination Benchmarks
 
 | Agent Count | Avg Latency | Max Latency | Memory Usage |
-|-------------|-------------|-------------|--------------|
-| 100         | 0.09ms      | 0.75ms      | ~50MB        |
-| 500         | 0.27ms      | 2.05ms      | ~120MB       |
-| 1000        | 0.66ms      | 3.12ms      | ~200MB       |
-| 2000        | 1.26ms      | 5.84ms      | ~350MB       |
+| --- | --- | --- | --- |
+| 100 | 0.09ms | 0.75ms | ~50MB |
+| 500 | 0.27ms | 2.05ms | ~120MB |
+| 1000 | 0.66ms | 3.12ms | ~200MB |
+| 2000 | 1.26ms | 5.84ms | ~350MB |
 
-*All benchmarks run on M2 MacBook Pro with Node.js v20*
+Benchmarks were run on an M2 MacBook Pro with Node.js 20.
 
-## 🛠️ Transport Layers
+### Protocol Simulation
+
+Measured on the protocol simulation across 1,000 trials:
+
+| Operation | Mean | p99 |
+| --- | --- | --- |
+| Encode features | 2.0us | 3.9us |
+| Serialize message | 0.5us | 0.8us |
+| Aggregate (10 agents) | 84us | 122us |
+| Score (weighted linear) | 15us | 26us |
+| Full pipeline (no LLM) | 110us | 159us |
+
+The protocol overhead is negligible relative to LLM inference; a representative run measured LLM latency at `6.8ms`, or `97.7%` of end-to-end time.
+
+## Transport Layers
 
 ### WebSocket Transport
+
 ```typescript
 import { createWebSocketTransport } from 'adaptive-bitmask';
 
 const wsTransport = createWebSocketTransport({
   port: 8080,
   maxConnections: 1000,
-  enableCompression: true
+  enableCompression: true,
 });
 
-// Real-time bidirectional coordination
 wsTransport.on('message', ({ agentId, message }) => {
   console.log(`Agent ${agentId}:`, message);
 });
 ```
 
 ### HTTP Transport
+
 ```typescript
 import { createHttpTransport } from 'adaptive-bitmask';
 
 const httpTransport = createHttpTransport({
   port: 8081,
   enableCors: true,
-  rateLimitPerMinute: 1000
+  rateLimitPerMinute: 1000,
 });
 
-// REST API for coordination
 fetch('http://localhost:8081/api/coordinate', {
   method: 'POST',
-  body: bitmaskMessage.toBytes()
+  body: bitmaskMessage.toBytes(),
 });
 ```
 
-## 📈 Monitoring & Observability
+### Transport-Agnostic Usage
+
+The protocol is transport-agnostic. The 24-byte message format can be sent over WebSocket, gRPC, HTTP, or any other byte-capable transport.
+
+```typescript
+ws.send(msg.toBytes());
+grpcStream.write({ payload: msg.toBytes() });
+fetch('/coordinate', { body: msg.serialize() });
+```
+
+Optional helper for control-plane metadata:
+
+```typescript
+import { createEnvelope, decodeEnvelope } from 'adaptive-bitmask';
+
+const envelope = createEnvelope(msg, schema.fingerprint, 'round-42');
+const restored = decodeEnvelope(envelope, schema.fingerprint);
+```
+
+See [`examples/transport.ts`](./examples/transport.ts) for an end-to-end example.
+
+## Monitoring and Observability
 
 ### Health Checks
+
 ```json
 {
   "status": "HEALTHY",
   "uptime": 3600000,
-  "version": "1.0.0-rc.1",
+  "version": "1.1.1",
   "metrics": {
     "messagesProcessed": 1000000,
     "memoryUsageMB": 256,
@@ -211,138 +240,140 @@ fetch('http://localhost:8081/api/coordinate', {
 ```
 
 ### Metrics Collection
+
 ```typescript
 import { MetricsCollector, Logger } from 'adaptive-bitmask';
 
 const metrics = new MetricsCollector();
 const logger = Logger.getInstance();
 
-// Automatic performance tracking
-metrics.recordCoordinationLatency(85); // microseconds
-logger.info('Coordination', 'Decision made', { 
-  decision: 'EXECUTE', 
-  agentCount: 1000 
+metrics.recordCoordinationLatency(85);
+logger.info('Coordination', 'Decision made', {
+  decision: 'EXECUTE',
+  agentCount: 1000,
 });
 ```
 
-## 🚨 Error Handling & Recovery
+## Error Handling and Recovery
 
 ```typescript
-import { 
-  ValidationError, 
-  CircuitBreaker, 
+import {
+  ValidationError,
+  CircuitBreaker,
   TimeoutManager,
-  RecoveryManager 
+  RecoveryManager,
 } from 'adaptive-bitmask';
 
-// Circuit breaker for resilience
-const circuitBreaker = new CircuitBreaker(5); // 5 failures threshold
+const circuitBreaker = new CircuitBreaker(5);
 
-// Timeout protection
 await TimeoutManager.withTimeout(
   coordinationOperation(),
-  10000, // 10s timeout
+  10000,
   'swarm-coordination'
 );
 
-// Retry with exponential backoff
 await RecoveryManager.withRetry(
   failingOperation,
-  3, // max retries
-  1000 // base delay
+  3,
+  1000
 );
 ```
 
----
+## Advanced Usage
 
-## Advanced Usage / Internal Engine
+For lower-level access to the protocol internals, the package exposes schema management, binary serialization, arbitration primitives, and transport helpers.
 
-For hardcore engineers who want direct access to the raw mathematical primitives and binary serialization logic.
+Protocol model:
 
 Based on the [Adaptive Bitmask Protocol paper](https://zenodo.org/records/18990535) (Jiang, 2026):
-
+```text
+Layer 0: SchemaManager
+Layer 1: Worker Agents
+Layer 2: Coordinator
+Layer 3: Arbiter
 ```
-Layer 0: SchemaManager    ← Feature-to-bit mappings, frequency pruning
-Layer 1: Worker Agents    ← Encode observations as 64-bit bitmasks
-Layer 2: Coordinator      ← OR-aggregate, compute per-bit confidence
-Layer 3: Arbiter          ← Weighted scoring → EXECUTE / SYNTHESIZE / REJECT
-```
 
-**24-byte wire format:**
+### 24-Byte Wire Format
+
 | Offset | Type | Field |
-|--------|------|-------|
+| --- | --- | --- |
 | 0-7 | uint64 | Feature bitmask |
 | 8-11 | uint32 | Agent ID |
 | 12-19 | int64 | Timestamp (ms) |
 | 20-23 | uint32 | Schema version |
 
-## Key Features
+### Schema Management
 
-**Schema Management** — Dynamic feature-to-bit mapping with frequency-based pruning. Emergency features (bits 56-63) are never pruned regardless of activation frequency.
+Dynamic feature-to-bit mapping supports frequency-based pruning. Emergency features in bits `56-63` are never pruned regardless of activation frequency.
 
 ```typescript
 const schema = new SchemaManager({ emergencyPrefix: 'EMERGENCY_' });
 schema.registerAll(myFeatures);
 schema.recordActivations(observedFeatures);
-schema.prune();  // retains top-56 by frequency + all emergency features
+schema.prune();
 
-// Paper-aligned collision math utilities
 const p = schema.theoreticalCollisionRate;
-// p = 1 - (1 - 1/64)^(m - 1), where m = activeFeatureCount
-
 const excluded = schema.expectedExcludedFeatures(80);
-// E[excluded] = m - 64 * (1 - (1 - 1/64)^m)
 ```
 
-**Schema Distribution** — Deterministic schema export/import with fingerprinting for cross-node compatibility checks.
+### Schema Distribution
+
+Deterministic schema export and import allow compatibility checks across nodes.
 
 ```typescript
 const exported = schema.exportSchema();
-// Send exported JSON through your control plane
 
 const replica = new SchemaManager();
 replica.importSchema(exported);
-// replica.fingerprint === schema.fingerprint
 ```
 
-**Binary Serialization** — Messages serialize to exactly 24 bytes. Round-trips through `serialize()` / `deserialize()` for any transport layer.
+### Binary Serialization
+
+Messages serialize to exactly 24 bytes and round-trip through `serialize()` and `deserialize()`.
 
 ```typescript
-const bytes = msg.toBytes();     // Uint8Array(24)
+const bytes = msg.toBytes();
 const restored = BitmaskMessage.deserialize(bytes);
 ```
 
-**Weighted Scoring** — Configurable importance weights per bit position. Domain-specific presets included.
+### Weighted Scoring
+
+Importance weights can be configured by bit position, and domain-specific presets are included.
 
 ```typescript
 import { createFinancialArbiter, createRoboticArbiter } from 'adaptive-bitmask';
 
-const arbiter = createFinancialArbiter();  // emergency bits weighted 0.45
-const arbiter = createRoboticArbiter();    // obstacle detection weighted 0.30
+const financialArbiter = createFinancialArbiter();
+const roboticArbiter = createRoboticArbiter();
 ```
 
-**Paper-Canonical Strategy Arbitration (Section 6)** — Rank strategy candidates by `s_final = 0.6*s_raw + 0.4*c`, then apply lead/synthesis thresholds.
+### Strategy Arbitration
+
+Strategy candidates can be ranked with `scoreStrategies()` using threshold-based lead and rejection criteria.
 
 ```typescript
-const result = arbiter.scoreStrategies([
-  { id: 'trend', mask: trendMask, confidence: trendConf },
-  { id: 'mean_revert', mask: mrMask, confidence: mrConf },
-  { id: 'breakout', mask: boMask, confidence: boConf },
-], {
-  leadThreshold: 0.15,
-  rejectThreshold: 0.40,
-});
+const result = arbiter.scoreStrategies(
+  [
+    { id: 'trend', mask: trendMask, confidence: trendConf },
+    { id: 'mean_revert', mask: mrMask, confidence: mrConf },
+    { id: 'breakout', mask: boMask, confidence: boConf },
+  ],
+  {
+    leadThreshold: 0.15,
+    rejectThreshold: 0.40,
+  }
+);
 ```
 
-Legacy compatibility: `arbiter.score(mask, confidence?)` remains unchanged for existing integrations.
+Legacy compatibility is preserved through `arbiter.score(mask, confidence?)`.
 
-**Bitwise Primitives** — Full suite of 64-bit operations using BigInt for precision.
+### Bitwise Primitives
 
 ```typescript
 import { setBit, popcount, merge, delta, hammingDistance } from 'adaptive-bitmask';
 ```
 
-**Strict Encoding Mode** — Fail fast on unknown features to catch schema drift at ingestion time.
+### Strict Encoding
 
 ```typescript
 const { mask } = encode(features, schema.featureToBit, {
@@ -350,16 +381,16 @@ const { mask } = encode(features, schema.featureToBit, {
 });
 ```
 
-**Stale Schema Policy** — Choose how coordinators handle version-mismatched messages.
+### Stale Schema Policy
 
 ```typescript
 const coordinator = new Coordinator({
   schemaVersion: schema.version,
-  staleMessagePolicy: 'drop', // 'accept' | 'warn' | 'drop'
+  staleMessagePolicy: 'drop',
 });
 ```
 
-**Telemetry Hooks** — Attach runtime callbacks for coordination and decision metrics.
+### Telemetry Hooks
 
 ```typescript
 const coordinator = new Coordinator({
@@ -379,69 +410,13 @@ const arbiter = new Arbiter({
 });
 ```
 
-## Performance
-
-Measured on the protocol simulation (1,000 trials):
-
-| Operation | Mean | p99 |
-|-----------|------|-----|
-| Encode features | 2.0μs | 3.9μs |
-| Serialize message | 0.5μs | 0.8μs |
-| Aggregate (10 agents) | 84μs | 122μs |
-| Score (weighted linear) | 15μs | 26μs |
-| **Full pipeline (no LLM)** | **110μs** | **159μs** |
-
-The protocol overhead is negligible. LLM inference (6.8ms) accounts for 97.7% of end-to-end latency.
-
-## Migration Notes (`0.1.x` -> `0.2.0-rc.0`)
-
-`BitmaskMessage` validation is now strict:
-- `deserialize()` now requires exactly `24` bytes (not "at least 24")
-- constructor throws for out-of-range `mask`, `agentId`, `schemaVersion`, or unsafe `timestampMs`
-
-Coordinator behavior adds explicit stale handling:
-- new config: `staleMessagePolicy: 'accept' | 'warn' | 'drop'`
-- aggregate output now includes `droppedStaleMessages`
-
-Schema coordination helpers are now available:
-- `schema.exportSchema()` / `schema.importSchema(...)`
-- deterministic `schema.fingerprint` for compatibility checks
-
-## Transport
-
-This library is **transport-agnostic**. The 24-byte message format works with any transport layer:
-
-```typescript
-// WebSocket
-ws.send(msg.toBytes());
-
-// gRPC (as bytes field)
-grpcStream.write({ payload: msg.toBytes() });
-
-// HTTP (base64 or raw body)
-fetch('/coordinate', { body: msg.serialize() });
-
-// Vercel AI SDK (coming soon)
-```
-
-Optional helper for control-plane metadata:
-
-```typescript
-import { createEnvelope, decodeEnvelope } from 'adaptive-bitmask';
-
-const envelope = createEnvelope(msg, schema.fingerprint, 'round-42');
-const restored = decodeEnvelope(envelope, schema.fingerprint);
-```
-
-See [examples/transport.ts](/Users/hjiang/Developer/adaptive-bitmask/examples/transport.ts) for end-to-end transport payload patterns.
-
 ## Benchmarking
 
 ```bash
 npm run benchmark
 ```
 
-Writes benchmark results to `benchmarks/latest.json`.
+This writes benchmark results to `benchmarks/latest.json`.
 
 ```bash
 npm run benchmark:run
@@ -449,35 +424,47 @@ npm run benchmark:check
 ```
 
 `benchmark:check` fails if an operation regresses beyond both thresholds:
-- relative: `BENCH_MAX_REGRESSION_PCT` (default `40`)
-- absolute: `BENCH_MAX_ABS_REGRESSION_US` (default `1.5`)
-- baseline file: `BENCH_BASELINE_PATH` (default `benchmarks/baseline.json`)
+
+- Relative: `BENCH_MAX_REGRESSION_PCT` (default `40`)
+- Absolute: `BENCH_MAX_ABS_REGRESSION_US` (default `1.5`)
+- Baseline file: `BENCH_BASELINE_PATH` (default `benchmarks/baseline.json`)
+
+## Migration Notes
+
+Changes introduced in the `0.2.0-rc.0` line:
+
+- `BitmaskMessage.deserialize()` now requires exactly `24` bytes.
+- Constructors throw for out-of-range `mask`, `agentId`, `schemaVersion`, or unsafe `timestampMs`.
+- Coordinators support `staleMessagePolicy: 'accept' | 'warn' | 'drop'`.
+- Aggregate output now includes `droppedStaleMessages`.
+- `schema.exportSchema()` and `schema.importSchema(...)` are available.
+- `schema.fingerprint` provides deterministic compatibility checks.
 
 ## API Reference
 
 ### Bitmask Primitives
 
-`empty()` · `setBit(mask, pos)` · `clearBit(mask, pos)` · `testBit(mask, pos)` · `popcount(mask)` · `activeBits(mask)` · `forEachSetBit(mask, fn)` · `merge(a, b)` · `intersect(a, b)` · `delta(prev, next)` · `hammingDistance(a, b)` · `hasEmergency(mask)` · `toBytes(mask)` · `fromBytes(buf)` · `encode(features, schema, options?)` · `decode(mask, reverseSchema)`
+`empty()`, `setBit(mask, pos)`, `clearBit(mask, pos)`, `testBit(mask, pos)`, `popcount(mask)`, `activeBits(mask)`, `forEachSetBit(mask, fn)`, `merge(a, b)`, `intersect(a, b)`, `delta(prev, next)`, `hammingDistance(a, b)`, `hasEmergency(mask)`, `toBytes(mask)`, `fromBytes(buf)`, `encode(features, schema, options?)`, `decode(mask, reverseSchema)`
 
 ### SchemaManager
 
-`new SchemaManager(config?)` · `.register(feature)` · `.registerAll(features)` · `.recordActivations(features)` · `.prune()` · `.snapshot()` · `.exportSchema()` · `.importSchema(exported)` · `.expectedExcludedFeatures(featureCount?)` · `.theoreticalCollisionRate` · `.fingerprint` · `.featureToBit` · `.bitToFeatures` · `.version`
+`new SchemaManager(config?)`, `.register(feature)`, `.registerAll(features)`, `.recordActivations(features)`, `.prune()`, `.snapshot()`, `.exportSchema()`, `.importSchema(exported)`, `.expectedExcludedFeatures(featureCount?)`, `.theoreticalCollisionRate`, `.fingerprint`, `.featureToBit`, `.bitToFeatures`, `.version`
 
 ### BitmaskMessage
 
-`new BitmaskMessage(data)` · `BitmaskMessage.now(mask, agentId, version)` · `.serialize()` · `.toBytes()` · `BitmaskMessage.deserialize(buf)` · `.sizeBytes` · `.compressionVsJson`
+`new BitmaskMessage(data)`, `BitmaskMessage.now(mask, agentId, version)`, `.serialize()`, `.toBytes()`, `BitmaskMessage.deserialize(buf)`, `.sizeBytes`, `.compressionVsJson`
 
 ### Arbiter
 
-`new Arbiter(config?)` · `.score(mask, confidence?)` (legacy) · `.scoreStrategies(candidates, options?)` (paper-canonical) · `.scoreMessages(messages, version?)` · `.setWeight(pos, weight)` · `createFinancialArbiter()` · `createRoboticArbiter()` (`onTelemetry`)
+`new Arbiter(config?)`, `.score(mask, confidence?)`, `.scoreStrategies(candidates, options?)`, `.scoreMessages(messages, version?)`, `.setWeight(pos, weight)`, `createFinancialArbiter()`, `createRoboticArbiter()`
 
 ### Coordinator
 
-`new Coordinator(config?)` · `.startRound()` · `.receive(msg)` · `.receiveAll(msgs)` · `.aggregate()` · `.schemaVersion` (`staleMessagePolicy`: `'accept' | 'warn' | 'drop'`, `onTelemetry`)
+`new Coordinator(config?)`, `.startRound()`, `.receive(msg)`, `.receiveAll(msgs)`, `.aggregate()`, `.schemaVersion`
 
 ### Transport Envelope
 
-`createEnvelope(msg, schemaFingerprint, roundId?)` · `decodeEnvelope(envelope, expectedSchemaFingerprint?)`
+`createEnvelope(msg, schemaFingerprint, roundId?)`, `decodeEnvelope(envelope, expectedSchemaFingerprint?)`
 
 ## License
 
