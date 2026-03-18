@@ -1,0 +1,72 @@
+name: Lean Formal Verification
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'lean/**'
+      - '.github/workflows/lean-verify.yml'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'lean/**'
+      - '.github/workflows/lean-verify.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify Lean Proofs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Cache Lean toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.elan
+            ~/.cache/lake
+          key: lean-${{ hashFiles('lean/lean-toolchain') }}-${{ hashFiles('lean/lakefile.toml') }}
+          restore-keys: |
+            lean-
+      
+      - name: Install elan (Lean version manager)
+        run: |
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> $GITHUB_PATH
+      
+      - name: Set Lean toolchain
+        run: |
+          cd lean
+          elan toolchain install $(cat lean-toolchain)
+      
+      - name: Fetch Mathlib cache
+        run: |
+          cd lean
+          lake exe cache get || true
+      
+      - name: Build Lean project
+        run: |
+          npm run lean:build
+      
+      - name: Run Lean tests
+        run: |
+          npm run lean:test
+      
+      - name: Check Lean formatting
+        run: |
+          npm run lean:format:check
+      
+      - name: Upload Lean build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lean-build-output
+          path: lean/.lake/build
+          retention-days: 7
