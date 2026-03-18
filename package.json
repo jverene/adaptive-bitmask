@@ -33,7 +33,12 @@
     "benchmark": "npm run build && npm run benchmark:run",
     "benchmark:run": "node benchmarks/run.mjs",
     "benchmark:check": "node benchmarks/check.mjs",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "lean:build": "cd lean && lake build",
+    "lean:test": "cd lean && lake test",
+    "lean:format": "cd lean && lake format",
+    "lean:format:check": "cd lean && lake format --check",
+    "verify:math": "npm run lean:build && npm run lean:test"
   },
   "keywords": [
     "multi-agent",
