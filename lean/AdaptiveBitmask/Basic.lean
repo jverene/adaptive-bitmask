@@ -1,7 +1,7 @@
 import Mathlib.Data.Nat.Bits
 import Mathlib.Data.Fin.Basic
 import Mathlib.Data.Real.Basic
-import Mathlib.Data.HashMap
+import Std.Data.HashMap
 
 /-!
 # Core Bitmask Primitives
@@ -27,6 +27,8 @@ of the Adaptive Bitmask Protocol.
 -/
 
 namespace AdaptiveBitmask
+
+open Std (HashMap)
 
 /-- Width of the bitmask in bits (64-bit unsigned). -/
 def BITMASK_WIDTH : Nat := 64

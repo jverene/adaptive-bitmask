@@ -1,5 +1,5 @@
 import AdaptiveBitmask.Basic
-import Mathlib.Data.HashMap
+import Std.Data.HashMap
 import Mathlib.Data.Real.Basic
 import Mathlib.Tactic.NormNum
 
@@ -24,6 +24,8 @@ mapping, including frequency-based pruning and collision probability analysis.
 -/
 
 namespace AdaptiveBitmask
+
+open Std (HashMap)
 
 /-- Configuration for schema manager. -/
 structure SchemaConfig where
