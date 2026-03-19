@@ -254,16 +254,16 @@ The Lean verification runs automatically on:
    npm run lean:test
    ```
 
-## Using `sorry` for Incomplete Proofs
+## Using Placeholders for Incomplete Proofs
 
-During development, you can use `sorry` as a placeholder:
+During development, you can use a temporary placeholder while iterating:
 
 ```lean
 theorem incomplete_proof (x : Nat) : x = x := by
-  sorry  -- TODO: complete this proof
+  admit  -- TODO: complete this proof
 ```
 
-**Note**: The CI will fail if any `sorry` remains. All proofs must be complete for merge.
+**Note**: The CI will fail if temporary proof placeholders remain. All proofs must be complete for merge.
 
 ## Dependencies
 
