@@ -53,24 +53,24 @@ def isValidPosition (p : Nat) : Prop := p < BITMASK_WIDTH
 
 /-- Set bit at position `p`. Returns 0 if position is invalid. -/
 def setBit (mask : Bitmask) (p : Nat) : Bitmask :=
-  if h : isValidPosition p then
+  if decide (isValidPosition p) then
     mask ||| (1 <<< p)
   else
     0
 
-/-- Clear bit at position `p`. Returns mask unchanged if position is invalid. -/
-def clearBit (mask : Bitmask) (p : Nat) : Bitmask :=
-  if h : isValidPosition p then
-    if testBit mask p then mask ^^^ (1 <<< p) else mask
-  else
-    mask
-
 /-- Test if bit at position `p` is set. Returns false if position is invalid. -/
 def testBit (mask : Bitmask) (p : Nat) : Bool :=
-  if h : isValidPosition p then
+  if decide (isValidPosition p) then
     (mask &&& (1 <<< p)) ≠ 0
   else
     false
+
+/-- Clear bit at position `p`. Returns mask unchanged if position is invalid. -/
+def clearBit (mask : Bitmask) (p : Nat) : Bitmask :=
+  if decide (isValidPosition p) then
+    if testBit mask p then mask ^^^ (1 <<< p) else mask
+  else
+    mask
 
 /-- Count the number of set bits (population count). -/
 def popcount (mask : Bitmask) : Nat :=
@@ -82,7 +82,7 @@ def activeBits (mask : Bitmask) : List Nat :=
 
 /-- Invoke a function on each set bit position (ascending order). -/
 def forEachSetBit (mask : Bitmask) (f : Nat → Unit) : Unit :=
-  List.forM (activeBits mask) f
+  (activeBits mask).foldl (fun _ p => f p) ()
 
 /-- OR-merge two bitmasks (union of features). -/
 def merge (a b : Bitmask) : Bitmask :=
@@ -117,8 +117,8 @@ def toBytes (mask : Bitmask) : Fin 8 → UInt8 :=
 /-- Deserialize from 8-byte array (little-endian). -/
 def fromBytes (bytes : Fin 8 → UInt8) : Bitmask :=
   List.foldl (fun acc i =>
-    acc ||| (UInt8.toNat (bytes ⟨i, by omega⟩) <<< (8 * i))
-  ) 0 (List.range 8)
+    acc ||| (UInt8.toNat (bytes i) <<< (8 * i.val))
+  ) 0 (List.finRange 8)
 
 /--
 Encode a set of features into a bitmask given a schema mapping.
@@ -128,7 +128,7 @@ def encode (features : List String) (schema : HashMap String (Fin 64)) :
     Bitmask × Nat × Nat :=
   let init := (0, 0, 0)
   let (mask, mapped, unmapped) := List.foldl (fun (m, mcnt, ucnt) feat =>
-    match schema.find? feat with
+    match schema.get? feat with
     | some bit => (m ||| (1 <<< bit.val), mcnt + 1, ucnt)
     | none => (m, mcnt, ucnt + 1)
   ) init features
@@ -139,9 +139,12 @@ Decode a bitmask back to feature names.
 Note: Ambiguous when collisions exist (multiple features per bit).
 -/
 def decode (mask : Bitmask) (reverseSchema : HashMap (Fin 64) (List String)) : List String :=
-  List.bind (activeBits mask) (fun bit =>
-    reverseSchema.find? ⟨bit, by omega⟩ |>.getD []
-  )
+  List.concatMap (fun bit =>
+    if h : bit < BITMASK_WIDTH then
+      reverseSchema.get? ⟨bit, h⟩ |>.getD []
+    else
+      []
+  ) (activeBits mask)
 
 namespace Theorems
 
