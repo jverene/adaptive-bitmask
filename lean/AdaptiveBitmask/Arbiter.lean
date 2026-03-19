@@ -270,11 +270,29 @@ def scoreStrategies (config : ArbiterConfig) (candidates : List StrategyCandidat
         Decision.EXECUTE
       else
         Decision.SYNTHESIZE
+    let synthesized :=
+      if decision = Decision.SYNTHESIZE then
+        let contenders := sortedRankings.take 3
+        if contenders.isEmpty then
+          none
+        else
+          let allBits := contenders.bind (fun s => AdaptiveBitmask.activeBits s.mask)
+          let uniqueBits := allBits.eraseDups
+          let requiredVotes := contenders.length / 2 + 1
+          some (uniqueBits.foldl (fun acc bit =>
+            let voteCount := contenders.countP (fun s => AdaptiveBitmask.testBit s.mask bit)
+            if voteCount ≥ requiredVotes then
+              AdaptiveBitmask.setBit acc bit
+            else
+              acc
+          ) 0)
+      else
+        none
     
     let result := {
       decision := decision
       selectedStrategyId := if decision = Decision.EXECUTE then some top1.id else none
-      synthesizedMask := none
+      synthesizedMask := synthesized
       leadScore := leadScore
       rankings := sortedRankings
     }
@@ -322,8 +340,12 @@ def createFinancialArbiter (overrides : ArbiterConfig := ArbiterConfig.default) 
     else if i.val = 13 then 0.22
     else if 56 ≤ i.val && i.val < 64 then 0.45
     else 0.08
-  
-  { overrides with weights := baseWeights }
+  let useBaseWeights :=
+    overrides.executeThreshold = ArbiterConfig.default.executeThreshold ∧
+    overrides.synthesizeThreshold = ArbiterConfig.default.synthesizeThreshold ∧
+    overrides.emergencyOverride = ArbiterConfig.default.emergencyOverride
+  { overrides with
+    weights := if useBaseWeights then baseWeights else overrides.weights }
 
 /--
 Create a robotic coordination arbiter with safety-first weights.
@@ -341,8 +363,12 @@ def createRoboticArbiter (overrides : ArbiterConfig := ArbiterConfig.default) : 
     else if i.val = 10 then 0.20
     else if 56 ≤ i.val && i.val < 64 then 0.45
     else 0.10
-  
-  { overrides with weights := baseWeights }
+  let useBaseWeights :=
+    overrides.executeThreshold = ArbiterConfig.default.executeThreshold ∧
+    overrides.synthesizeThreshold = ArbiterConfig.default.synthesizeThreshold ∧
+    overrides.emergencyOverride = ArbiterConfig.default.emergencyOverride
+  { overrides with
+    weights := if useBaseWeights then baseWeights else overrides.weights }
 
 namespace Theorems
 

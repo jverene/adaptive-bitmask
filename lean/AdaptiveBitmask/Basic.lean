@@ -59,7 +59,7 @@ def setBit (mask : Bitmask) (p : Nat) : Bitmask :=
 /-- Clear bit at position `p`. Returns mask unchanged if position is invalid. -/
 def clearBit (mask : Bitmask) (p : Nat) : Bitmask :=
   if h : isValidPosition p then
-    if testBit mask p then mask - (1 <<< p) else mask
+    if testBit mask p then mask ^^^ (1 <<< p) else mask
   else
     mask
 
