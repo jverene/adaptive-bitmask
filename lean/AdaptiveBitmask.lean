@@ -10,8 +10,6 @@
 --   - Coordinator: Multi-agent aggregation logic
 --   - Arbiter:     Weighted scoring and decision synthesis
 
-module AdaptiveBitmask
-
 import AdaptiveBitmask.Basic
 import AdaptiveBitmask.Schema
 import AdaptiveBitmask.Message
