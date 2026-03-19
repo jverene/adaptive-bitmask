@@ -144,7 +144,7 @@ Note: Ambiguous when collisions exist (multiple features per bit).
 def decode (mask : Bitmask) (reverseSchema : HashMap (Fin 64) (List String)) : List String :=
   List.foldr (fun bit acc =>
     if h : bit < BITMASK_WIDTH then
-      (reverseSchema.get? ⟨bit, h⟩ |>.getD []) ++ acc
+      (reverseSchema.get? ⟨bit, h⟩ |>.getD []).foldr List.cons acc
     else
       acc
   ) [] (activeBits mask)
