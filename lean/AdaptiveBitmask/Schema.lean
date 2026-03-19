@@ -1,7 +1,6 @@
 import AdaptiveBitmask.Basic
-import Mathlib.Data.HashMap.Basic
+import Mathlib.Data.HashMap
 import Mathlib.Data.Real.Basic
-import Mathlib.Data.Real.Pow
 import Mathlib.Tactic.NormNum
 
 /-!
