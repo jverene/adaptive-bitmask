@@ -71,12 +71,12 @@ def activeFeatureCount (state : SchemaState) : Nat :=
 
 /-- Get activation frequency for a feature. -/
 def getFrequency (state : SchemaState) (feature : String) : Nat :=
-  state.activationCounts.find? feature |>.getD 0
+  state.activationCounts.get? feature |>.getD 0
 
 /-- Record feature activations for frequency tracking. -/
 def recordActivations (state : SchemaState) (features : List String) : SchemaState :=
   let (newCounts, totalDelta) := List.foldl (fun (counts, delta) feat =>
-    let oldCount := counts.find? feat |>.getD 0
+    let oldCount := counts.get? feat |>.getD 0
     (counts.insert feat (oldCount + 1), delta + 1)
   ) (state.activationCounts, 0) features
   { state with
@@ -350,7 +350,7 @@ Fingerprint changes when feature mapping changes.
 -/
 theorem fingerprint_changes_on_mapping (state : SchemaState) (feat : String) (bit : Fin 64) :
   let newState := { state with featureToBit := state.featureToBit.insert feat bit }
-  state.featureToBit.find? feat ≠ some bit →
+  state.featureToBit.get? feat ≠ some bit →
   computeFingerprint newState ≠ computeFingerprint state := by
   intro h
   simp [computeFingerprint, fnv1aHash]
