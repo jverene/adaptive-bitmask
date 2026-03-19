@@ -142,9 +142,9 @@ Decode a bitmask back to feature names.
 Note: Ambiguous when collisions exist (multiple features per bit).
 -/
 def decode (mask : Bitmask) (reverseSchema : HashMap (Fin 64) (List String)) : List String :=
-  List.foldl (fun acc bit =>
+  List.foldr (fun bit acc =>
     if h : bit < BITMASK_WIDTH then
-      acc ++ (reverseSchema.get? ⟨bit, h⟩ |>.getD [])
+      (reverseSchema.get? ⟨bit, h⟩ |>.getD []) ++ acc
     else
       acc
   ) [] (activeBits mask)
