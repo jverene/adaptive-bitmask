@@ -82,7 +82,7 @@ def activeBits (mask : Bitmask) : List Nat :=
 
 /-- Invoke a function on each set bit position (ascending order). -/
 def forEachSetBit (mask : Bitmask) (f : Nat → Unit) : Unit :=
-  (activeBits mask).foldl (fun _ p => f p) ()
+  (activeBits mask).foldl (fun (_ : Unit) p => f p) ()
 
 /-- OR-merge two bitmasks (union of features). -/
 def merge (a b : Bitmask) : Bitmask :=
@@ -116,7 +116,7 @@ def toBytes (mask : Bitmask) : Fin 8 → UInt8 :=
 
 /-- Deserialize from 8-byte array (little-endian). -/
 def fromBytes (bytes : Fin 8 → UInt8) : Bitmask :=
-  List.foldl (fun acc i =>
+  List.foldl (fun acc (i : Fin 8) =>
     acc ||| (UInt8.toNat (bytes i) <<< (8 * i.val))
   ) 0 (List.finRange 8)
 
