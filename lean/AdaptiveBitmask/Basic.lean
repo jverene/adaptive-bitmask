@@ -51,7 +51,8 @@ def MED_FREQ_RANGE : (Nat × Nat) := (48, 55)
 /-- Check if a bit position is valid (0-63). -/
 def isValidPosition (p : Nat) : Prop := p < BITMASK_WIDTH
 
-instance : DecidablePred isValidPosition := inferInstance
+instance : DecidablePred isValidPosition :=
+  inferInstanceAs (DecidablePred (· < BITMASK_WIDTH))
 
 /-- Set bit at position `p`. Returns 0 if position is invalid. -/
 def setBit (mask : Bitmask) (p : Nat) : Bitmask :=
@@ -141,7 +142,7 @@ Decode a bitmask back to feature names.
 Note: Ambiguous when collisions exist (multiple features per bit).
 -/
 def decode (mask : Bitmask) (reverseSchema : HashMap (Fin 64) (List String)) : List String :=
-  List.bind (activeBits mask) (fun bit =>
+  List.concatMap (activeBits mask) (fun bit =>
     if h : bit < BITMASK_WIDTH then
       reverseSchema.get? ⟨bit, h⟩ |>.getD []
     else
