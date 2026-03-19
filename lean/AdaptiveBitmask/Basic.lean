@@ -21,8 +21,6 @@ of the Adaptive Bitmask Protocol.
 - Emergency bits (56-63) can be isolated
 -/
 
-module AdaptiveBitmask.Basic
-
 import Mathlib.Data.Nat.Bits
 import Mathlib.Data.Fin.Basic
 import Mathlib.Data.Real.Basic

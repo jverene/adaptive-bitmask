@@ -18,8 +18,6 @@ mapping, including frequency-based pruning and collision probability analysis.
 - Fingerprint determinism
 -/
 
-module AdaptiveBitmask.Schema
-
 import AdaptiveBitmask.Basic
 import Mathlib.Data.HashMap.Basic
 import Mathlib.Data.Real.Basic

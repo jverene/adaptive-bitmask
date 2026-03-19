@@ -17,8 +17,6 @@ This module formalizes the multi-agent aggregation logic of the Coordinator.
 - Per-bit confidence equals vote fraction
 -/
 
-module AdaptiveBitmask.Coordinator
-
 import AdaptiveBitmask.Message
 import Mathlib.Data.Real.Basic
 import Mathlib.Data.List.Basic

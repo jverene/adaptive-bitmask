@@ -19,8 +19,6 @@ This module formalizes the weighted linear scoring and decision logic of the Arb
 - Emergency bits trigger REJECT (fail-safe)
 -/
 
-module AdaptiveBitmask.Arbiter
-
 import AdaptiveBitmask.Coordinator
 import Mathlib.Data.Real.Basic
 import Mathlib.Data.Fin.VecNotation
