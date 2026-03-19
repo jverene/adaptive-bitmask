@@ -1,3 +1,7 @@
+import AdaptiveBitmask.Basic
+import Mathlib.Data.UInt
+import Mathlib.Data.Int.Basic
+
 /-!
 # Message Wire Format
 
@@ -27,10 +31,6 @@ All fields are little-endian for consistency with x86-64.
 - Roundtrip serialization/deserialization
 - Validation of field ranges (uint64, uint32, int64)
 -/
-
-import AdaptiveBitmask.Basic
-import Mathlib.Data.UInt
-import Mathlib.Data.Int.Basic
 
 namespace AdaptiveBitmask
 

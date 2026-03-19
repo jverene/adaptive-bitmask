@@ -1,3 +1,7 @@
+import Mathlib.Data.Nat.Bits
+import Mathlib.Data.Fin.Basic
+import Mathlib.Data.Real.Basic
+
 /-!
 # Core Bitmask Primitives
 
@@ -20,10 +24,6 @@ of the Adaptive Bitmask Protocol.
 - Serialization roundtrips correctly
 - Emergency bits (56-63) can be isolated
 -/
-
-import Mathlib.Data.Nat.Bits
-import Mathlib.Data.Fin.Basic
-import Mathlib.Data.Real.Basic
 
 namespace AdaptiveBitmask
 

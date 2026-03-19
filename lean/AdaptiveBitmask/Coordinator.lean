@@ -1,3 +1,7 @@
+import AdaptiveBitmask.Message
+import Mathlib.Data.Real.Basic
+import Mathlib.Data.List.Basic
+
 /-!
 # Coordinator Aggregation
 
@@ -16,10 +20,6 @@ This module formalizes the multi-agent aggregation logic of the Coordinator.
 - Confidence is bounded in [0, 1]
 - Per-bit confidence equals vote fraction
 -/
-
-import AdaptiveBitmask.Message
-import Mathlib.Data.Real.Basic
-import Mathlib.Data.List.Basic
 
 namespace AdaptiveBitmask
 

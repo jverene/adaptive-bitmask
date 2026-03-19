@@ -1,3 +1,9 @@
+import AdaptiveBitmask.Basic
+import Mathlib.Data.HashMap.Basic
+import Mathlib.Data.Real.Basic
+import Mathlib.Data.Real.Pow
+import Mathlib.Tactic.NormNum
+
 /-!
 # Schema Management and Collision Theory
 
@@ -17,12 +23,6 @@ mapping, including frequency-based pruning and collision probability analysis.
 - Expected excluded features for m=128 (≈72.52) and m=80 (≈34.2)
 - Fingerprint determinism
 -/
-
-import AdaptiveBitmask.Basic
-import Mathlib.Data.HashMap.Basic
-import Mathlib.Data.Real.Basic
-import Mathlib.Data.Real.Pow
-import Mathlib.Tactic.NormNum
 
 namespace AdaptiveBitmask
 

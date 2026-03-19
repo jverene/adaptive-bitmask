@@ -1,3 +1,7 @@
+import AdaptiveBitmask.Coordinator
+import Mathlib.Data.Real.Basic
+import Mathlib.Data.Fin.VecNotation
+
 /-!
 # Arbiter Scoring and Decision Synthesis
 
@@ -18,10 +22,6 @@ This module formalizes the weighted linear scoring and decision logic of the Arb
 - Decision logic is exhaustive and deterministic
 - Emergency bits trigger REJECT (fail-safe)
 -/
-
-import AdaptiveBitmask.Coordinator
-import Mathlib.Data.Real.Basic
-import Mathlib.Data.Fin.VecNotation
 
 namespace AdaptiveBitmask
 
