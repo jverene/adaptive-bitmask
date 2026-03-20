@@ -85,7 +85,7 @@ def BitmaskMessage.isValid (msg : BitmaskMessage) : Prop :=
 Create a message with current timestamp.
 Note: In Lean, we use a provided timestamp since we don't have IO here.
 -/
-def BitmaskMessage.now (mask : Bitmask) (agentId : Nat) (schemaVersion : Nat) 
+def BitmaskMessage.now (mask : Bitmask) (agentId : Nat) (schemaVersion : Nat)
     (timestampMs : Int) : BitmaskMessage :=
   { mask := mask
   , agentId := agentId
@@ -104,23 +104,23 @@ Layout:
 def serializeMessage (msg : BitmaskMessage) : Fin 24 → UInt8 :=
   let maskBytes := fun i : Fin 8 =>
     UInt8.ofNat ((msg.mask >>> (8 * i.val)) &&& 0xFF)
-  
+
   let agentIdBytes := fun i : Fin 4 =>
     UInt8.ofNat ((msg.agentId >>> (8 * i.val)) &&& 0xFF)
-  
+
   let timestampBytes := fun i : Fin 8 =>
     let tsNat := Int.toNat (msg.timestampMs + (1 <<< 63))
     UInt8.ofNat ((tsNat >>> (8 * i.val)) &&& 0xFF)
-  
+
   let versionBytes := fun i : Fin 4 =>
     UInt8.ofNat ((msg.schemaVersion >>> (8 * i.val)) &&& 0xFF)
-  
+
   fun i =>
-    if h : i.val < 8 then
-      maskBytes ⟨i.val, h⟩
-    else if h : i.val < 12 then
+    if h₁ : i.val < 8 then
+      maskBytes ⟨i.val, h₁⟩
+    else if h₂ : i.val < 12 then
       agentIdBytes ⟨i.val - 8, by omega⟩
-    else if h : i.val < 20 then
+    else if h₃ : i.val < 20 then
       timestampBytes ⟨i.val - 12, by omega⟩
     else
       versionBytes ⟨i.val - 20, by omega⟩
@@ -139,30 +139,30 @@ def deserializeMessage (bytes : List UInt8) : Option BitmaskMessage :=
     none
   else
     let arr := bytes.toArray
-    if h₂ : arr.size ≠ 24 then
+    if _ : arr.size ≠ 24 then
       none
     else
       -- Parse mask (bytes 0-7, little-endian)
       let mask := List.foldl (fun acc i =>
         acc ||| (UInt8.toNat arr[i]! <<< (8 * i))
       ) 0 (List.range 8)
-      
+
       -- Parse agentId (bytes 8-11, little-endian)
       let agentId := List.foldl (fun acc i =>
         acc ||| (UInt8.toNat arr[i + 8]! <<< (8 * i))
       ) 0 (List.range 4)
-      
+
       -- Parse timestampMs (bytes 12-19, little-endian, as int64)
       let tsNat := List.foldl (fun acc i =>
         acc ||| (UInt8.toNat arr[i + 12]! <<< (8 * i))
       ) 0 (List.range 8)
       let timestampMs := Int.ofNat tsNat - (1 <<< 63)
-      
+
       -- Parse schemaVersion (bytes 20-23, little-endian)
       let schemaVersion := List.foldl (fun acc i =>
         acc ||| (UInt8.toNat arr[i + 20]! <<< (8 * i))
       ) 0 (List.range 4)
-      
+
       some {
         mask := mask
         agentId := agentId
@@ -179,13 +179,13 @@ JSON-equivalent size for comparison.
 Useful for demonstrating compression ratio.
 -/
 def BitmaskMessage.jsonSize (msg : BitmaskMessage) : Nat :=
-  -- Approximate JSON size: "mask": "<bigint>", "agentId": <num>, 
+  -- Approximate JSON size: "mask": "<bigint>", "agentId": <num>,
   -- "timestampMs": <num>, "schemaVersion": <num>
   let maskStr := toString msg.mask
   let agentIdStr := toString msg.agentId
   let timestampStr := toString msg.timestampMs
   let versionStr := toString msg.schemaVersion
-  9 + maskStr.length + 2 + 11 + agentIdStr.length + 2 + 
+  9 + maskStr.length + 2 + 11 + agentIdStr.length + 2 +
   15 + timestampStr.length + 2 + 17 + versionStr.length + 2
 
 /-- Compression ratio vs JSON encoding. -/
@@ -203,8 +203,9 @@ axiom wireSize_correct (msg : BitmaskMessage) :
   msg.wireSize = MESSAGE_SIZE_BYTES
 
 /-- Serialization produces exactly 24 bytes. -/
-axiom serialize_length (msg : BitmaskMessage) :
-  (List.finRange 24).map (serializeMessage msg ·) |> List.length = 24
+theorem serialize_length (msg : BitmaskMessage) :
+  ((List.finRange 24).map (serializeMessage msg)).length = 24 := by
+  simp
 
 /-- Deserialize rejects arrays with wrong length. -/
 axiom deserialize_length_check (bytes : List UInt8) :
@@ -212,29 +213,29 @@ axiom deserialize_length_check (bytes : List UInt8) :
 
 /-- Valid messages roundtrip through serialization. -/
 axiom message_roundtrip (msg : BitmaskMessage) :
-  deserializeMessage ((List.finRange 24).map (serializeMessage msg ·)) = some msg
+  deserializeMessage ((List.finRange 24).map (serializeMessage msg)) = some msg
 
 /-- Mask field is correctly serialized and deserialized. -/
 axiom mask_roundtrip (msg : BitmaskMessage) :
-  let bytes := (List.finRange 24).map (serializeMessage msg ·)
+  let bytes := (List.finRange 24).map (serializeMessage msg)
   let deserialized := deserializeMessage bytes
   deserialized.isSome → deserialized.get!.mask = msg.mask
 
 /-- AgentId field is correctly serialized and deserialized. -/
 axiom agentId_roundtrip (msg : BitmaskMessage) :
-  let bytes := (List.finRange 24).map (serializeMessage msg ·)
+  let bytes := (List.finRange 24).map (serializeMessage msg)
   let deserialized := deserializeMessage bytes
   deserialized.isSome → deserialized.get!.agentId = msg.agentId
 
 /-- Timestamp field is correctly serialized and deserialized. -/
 axiom timestamp_roundtrip (msg : BitmaskMessage) :
-  let bytes := (List.finRange 24).map (serializeMessage msg ·)
+  let bytes := (List.finRange 24).map (serializeMessage msg)
   let deserialized := deserializeMessage bytes
   deserialized.isSome → deserialized.get!.timestampMs = msg.timestampMs
 
 /-- SchemaVersion field is correctly serialized and deserialized. -/
 axiom schemaVersion_roundtrip (msg : BitmaskMessage) :
-  let bytes := (List.finRange 24).map (serializeMessage msg ·)
+  let bytes := (List.finRange 24).map (serializeMessage msg)
   let deserialized := deserializeMessage bytes
   deserialized.isSome → deserialized.get!.schemaVersion = msg.schemaVersion
 
@@ -244,24 +245,24 @@ axiom compression_ratio_positive (msg : BitmaskMessage) :
 
 /-- Message validity is preserved by roundtrip. -/
 axiom roundtrip_preserves_validity (msg : BitmaskMessage) (h : msg.isValid) :
-  let bytes := (List.finRange 24).map (serializeMessage msg ·)
+  let bytes := (List.finRange 24).map (serializeMessage msg)
   let deserialized := deserializeMessage bytes
   deserialized.isSome → deserialized.get!.isValid
 
 /-- Empty message (all zeros) roundtrips correctly. -/
 axiom empty_message_roundtrip :
   let msg := { mask := 0, agentId := 0, timestampMs := 0, schemaVersion := 0 }
-  deserializeMessage ((List.finRange 24).map (serializeMessage msg ·)) = some msg
+  deserializeMessage ((List.finRange 24).map (serializeMessage msg)) = some msg
 
 /-- Maximum values roundtrip correctly. -/
 axiom max_values_roundtrip :
-  let msg := { 
-    mask := UINT64_MAX, 
-    agentId := UINT32_MAX, 
-    timestampMs := Int.ofNat UINT64_MAX, 
-    schemaVersion := UINT32_MAX 
+  let msg := {
+    mask := UINT64_MAX,
+    agentId := UINT32_MAX,
+    timestampMs := Int.ofNat UINT64_MAX,
+    schemaVersion := UINT32_MAX
   }
-  deserializeMessage ((List.finRange 24).map (serializeMessage msg ·)) = some msg
+  deserializeMessage ((List.finRange 24).map (serializeMessage msg)) = some msg
 
 end Theorems
 
