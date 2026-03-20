@@ -195,7 +195,7 @@ def prune (state : SchemaState) : SchemaState × PruneResult :=
   let highFreqAssigned := sortedRegular.take maxHighFreq
   let medFreqAssigned := sortedRegular.drop maxHighFreq |>.take maxMedFreq
   
-  let retainedFeatures := emergencyAssigned ++ highFreqAssigned ++ medFreqAssigned
+  let _retainedFeatures := emergencyAssigned ++ highFreqAssigned ++ medFreqAssigned
   let excludedFeatures := 
     (sortedEmergency.drop maxEmergency) ++ (sortedRegular.drop (maxHighFreq + maxMedFreq))
   
