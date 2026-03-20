@@ -178,8 +178,8 @@ def prune (state : SchemaState) : SchemaState × PruneResult :=
   -- Sort by frequency (descending), then by name (stable tie-break)
   let sortByFreq := fun l : List String =>
     sortBy (fun a b =>
-      let countA := state.getFrequency a
-      let countB := state.getFrequency b
+      let countA := getFrequency state a
+      let countB := getFrequency state b
       if countA ≠ countB then countB > countA else a < b
     ) l
   

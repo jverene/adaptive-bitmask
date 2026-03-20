@@ -204,7 +204,7 @@ axiom wireSize_correct (msg : BitmaskMessage) :
 
 /-- Serialization produces exactly 24 bytes. -/
 axiom serialize_length (msg : BitmaskMessage) :
-  (List.finRange 24).map (serializeMessage msg ·) |>.length = 24
+  (List.finRange 24).map (serializeMessage msg ·) |> List.length = 24
 
 /-- Deserialize rejects arrays with wrong length. -/
 axiom deserialize_length_check (bytes : List UInt8) :
