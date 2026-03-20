@@ -27,6 +27,14 @@ namespace AdaptiveBitmask
 
 open Std (HashMap)
 
+private def insertBy (cmp : α → α → Bool) (x : α) : List α → List α
+  | [] => [x]
+  | y :: ys => if cmp x y then x :: y :: ys else y :: insertBy cmp x ys
+
+private def sortBy (cmp : α → α → Bool) : List α → List α
+  | [] => []
+  | x :: xs => insertBy cmp x (sortBy cmp xs)
+
 /-- Configuration for schema manager. -/
 structure SchemaConfig where
   /-- Maximum features before triggering prune (default: 64). -/
@@ -128,8 +136,10 @@ The fingerprint is computed from:
 4. Sorted emergency features
 -/
 def computeFingerprint (state : SchemaState) : UInt64 :=
-  let entries := state.featureToBit.toList
-  let emergencyFeatures := state.config.emergencyFeatures
+  let entries := sortBy (fun a b : String × Fin 64 =>
+    if a.2 ≠ b.2 then a.2 < b.2 else a.1 < b.1
+  ) state.featureToBit.toList
+  let emergencyFeatures := sortBy (· < ·) state.config.emergencyFeatures
   let canonical := s!"v={state.version};ep={state.config.emergencyPrefix};ef={emergencyFeatures};m={entries}"
   fnv1aHash canonical
 
@@ -166,7 +176,12 @@ def prune (state : SchemaState) : SchemaState × PruneResult :=
   let regularList := allFeatures.filter (fun f => ¬isEmergency state f)
   
   -- Sort by frequency (descending), then by name (stable tie-break)
-  let sortByFreq := fun l : List String => l
+  let sortByFreq := fun l : List String =>
+    sortBy (fun a b =>
+      let countA := state.getFrequency a
+      let countB := state.getFrequency b
+      if countA ≠ countB then countB > countA else a < b
+    ) l
   
   let sortedEmergency := sortByFreq emergencyList
   let sortedRegular := sortByFreq regularList
@@ -199,7 +214,8 @@ def prune (state : SchemaState) : SchemaState × PruneResult :=
     m.insert bit [feat]
   ) (∅ : HashMap (Fin 64) (List String)) newFeatureToBit.toList
   
-  let newVersion := state.version + 1
+  let versionChanged := newFeatureToBit.toList ≠ state.featureToBit.toList
+  let newVersion := if versionChanged then state.version + 1 else state.version
   
   let newState := {
     state with
