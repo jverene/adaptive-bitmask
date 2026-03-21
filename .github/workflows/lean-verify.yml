@@ -38,7 +38,11 @@ jobs:
       - name: Set Lean toolchain
         run: |
           cd lean
-          elan toolchain install $(cat lean-toolchain)
+          TOOLCHAIN="$(cat lean-toolchain)"
+          if ! elan toolchain list | grep -Fq "$TOOLCHAIN"; then
+            elan toolchain install "$TOOLCHAIN"
+          fi
+          elan default "$TOOLCHAIN"
       
       - name: Fetch Mathlib cache
         run: |
