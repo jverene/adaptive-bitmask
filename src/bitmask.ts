@@ -49,15 +49,14 @@ export function testBit(mask: Bitmask, position: number): boolean {
   return (mask & (1n << BigInt(position))) !== 0n;
 }
 
-/** Count set bits (population count). */
+/** Count set bits (population count) using constant-time SWAR algorithm. */
 export function popcount(mask: Bitmask): number {
-  let count = 0;
-  let m = mask;
-  while (m > 0n) {
-    m &= m - 1n; // clear lowest set bit
-    count++;
-  }
-  return count;
+  let x = BigInt.asUintN(64, mask);
+  x -= (x >> 1n) & 0x5555555555555555n;
+  x = (x & 0x3333333333333333n) + ((x >> 2n) & 0x3333333333333333n);
+  x = (x + (x >> 4n)) & 0x0f0f0f0f0f0f0f0fn;
+  x = BigInt.asUintN(64, x * 0x0101010101010101n);
+  return Number(x >> 56n);
 }
 
 /** Get all set bit positions. */
