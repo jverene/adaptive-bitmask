@@ -3,7 +3,7 @@
 `adaptive-bitmask` is a low-latency coordination protocol for multi-agent systems. It reduces coordination payloads to a fixed 24-byte binary format using dynamically pruned semantic bitmasks, with published benchmarks showing up to an 85x reduction versus JSON-based messaging.
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18990535.svg)](https://doi.org/10.5281/zenodo.18990535)
-Current package version: `1.1.1`.
+Current package version: `2.0.0`.
 
 ## Overview
 
