@@ -64,6 +64,25 @@ Key observability hooks:
 - WebSocket and HTTP transport layers
 - Security-oriented hooks for validation, rate limiting, and authentication
 
+## Formal Verification (Lean 4)
+
+The core mathematical foundations of the `adaptive-bitmask` protocol are mechanically proven using the Lean 4 theorem prover. This ensures absolute correctness for mission-critical properties.
+
+**Benefits:**
+- **Mathematical Certainty:** Core operations like bitwise consensus and threshold logic are proven correct for all possible inputs.
+- **Protocol Safety:** Prevents integer overflow, undefined behavior, and logical inconsistencies in distributed decision-making.
+- **Algorithmic Trust:** Provides formal guarantees that threshold calculations and aggregation functions strictly adhere to their specifications.
+
+**Running the Verification:**
+To run the Lean proofs locally, ensure you have Lean 4 and Lake installed (via `elan`), then run:
+
+```bash
+cd lean
+lake build
+```
+
+See the [Lean Verification Guide](LEAN_VERIFICATION.md) for full details on the formalized properties.
+
 ## Deployment Examples
 
 ### High-Frequency Trading
