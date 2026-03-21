@@ -1,6 +1,7 @@
 import AdaptiveBitmask.Coordinator
 import Mathlib.Data.Real.Basic
 import Mathlib.Data.Fin.VecNotation
+import Mathlib.Algebra.BigOperators.Group.Finset.Defs
 
 /-!
 # Arbiter Scoring and Decision Synthesis
@@ -30,6 +31,7 @@ inductive Decision where
   | EXECUTE
   | SYNTHESIZE
   | REJECT
+deriving BEq, DecidableEq
 
 /-- Full decision result with audit trail. -/
 structure ArbiterResult where
@@ -71,7 +73,7 @@ def ArbiterConfig.default : ArbiterConfig :=
   , emergencyOverride := true }
 
 /-- Sum of all weights. -/
-def weightSum (config : ArbiterConfig) : Real :=
+noncomputable def weightSum (config : ArbiterConfig) : Real :=
   Finset.univ.sum config.weights
 
 /--
@@ -80,9 +82,10 @@ Weighted linear scoring: ŝ = Σ(w_k · b_k) / Σ(w_k)
 For each active bit k in the mask, add weight w_k to numerator.
 Divide by total weight sum.
 -/
-def weightedScore (config : ArbiterConfig) (mask : Bitmask) : Real :=
+noncomputable def weightedScore (config : ArbiterConfig) (mask : Bitmask) : Real :=
   let active := AdaptiveBitmask.activeBits mask
-  let numerator := active.foldl (fun acc p => acc + config.weights ⟨p, by omega⟩) 0
+  let numerator := active.foldl (fun acc p =>
+    if h : p < 64 then acc + config.weights ⟨p, h⟩ else acc) 0
   let denominator := weightSum config
   if denominator = 0 then 0 else numerator / denominator
 
@@ -92,16 +95,16 @@ Confidence-weighted adjustment.
 Computes: Σ(w_k · b_k · c_k) / Σ(w_k · b_k)
 where c_k is the confidence for bit k.
 -/
-def confidenceAdjustedScore (config : ArbiterConfig) (mask : Bitmask) 
+noncomputable def confidenceAdjustedScore (config : ArbiterConfig) (mask : Bitmask)
     (confidence : Nat → Real) : Real :=
   let active := AdaptiveBitmask.activeBits mask
-  let confNumerator := active.foldl (fun acc p => 
-    acc + config.weights ⟨p, by omega⟩ * confidence p
+  let confNumerator := active.foldl (fun acc p =>
+    if h : p < 64 then acc + config.weights ⟨p, h⟩ * confidence p else acc
   ) 0
-  let confDenominator := active.foldl (fun acc p => 
-    acc + config.weights ⟨p, by omega⟩
+  let confDenominator := active.foldl (fun acc p =>
+    if h : p < 64 then acc + config.weights ⟨p, h⟩ else acc
   ) 0
-  if confDenominator = 0 then weightedScore config mask 
+  if confDenominator = 0 then weightedScore config mask
   else confNumerator / confDenominator
 
 /--
@@ -109,7 +112,7 @@ Composite score: ŝ_final = 0.6 * ŝ_raw + 0.4 * c
 
 Clamped to [0, 1].
 -/
-def compositeScore (rawScore confidenceScore : Real) : Real :=
+noncomputable def compositeScore (rawScore confidenceScore : Real) : Real :=
   min 1.0 (rawScore * 0.6 + confidenceScore * 0.4)
 
 /--
@@ -119,7 +122,7 @@ Make decision based on final score and thresholds.
 - SYNTHESIZE if finalScore ≥ synthesizeThreshold
 - REJECT otherwise
 -/
-def makeDecision (finalScore : Real) (config : ArbiterConfig) : Decision :=
+noncomputable def makeDecision (finalScore : Real) (config : ArbiterConfig) : Decision :=
   if finalScore ≥ config.executeThreshold then
     Decision.EXECUTE
   else if finalScore ≥ config.synthesizeThreshold then
@@ -133,7 +136,7 @@ Score an aggregated bitmask and produce a decision.
 If emergencyOverride is true and emergency bits are set,
 force REJECT regardless of score (fail-safe behavior).
 -/
-def score (config : ArbiterConfig) (aggregatedMask : Bitmask) 
+noncomputable def score (config : ArbiterConfig) (aggregatedMask : Bitmask)
     (confidence : Option (Nat → Real)) : ArbiterResult :=
   let active := AdaptiveBitmask.activeBits aggregatedMask
   let emergency := AdaptiveBitmask.hasEmergency aggregatedMask
@@ -188,6 +191,7 @@ structure StrategyScore where
   confidenceScore : Real
   /-- Final composite score. -/
   finalScore : Real
+deriving Inhabited
 
 /-- Strategy decision result. -/
 structure StrategyDecisionResult where
@@ -222,7 +226,7 @@ Algorithm:
    - SYNTHESIZE if top strategies within threshold
    - REJECT if top score < rejectThreshold
 -/
-def scoreStrategies (config : ArbiterConfig) (candidates : List StrategyCandidate) 
+noncomputable def scoreStrategies (config : ArbiterConfig) (candidates : List StrategyCandidate)
     (options : ScoreStrategiesOptions := {}) : StrategyDecisionResult :=
   if candidates.isEmpty then
     {
@@ -234,34 +238,32 @@ def scoreStrategies (config : ArbiterConfig) (candidates : List StrategyCandidat
     }
   else
     -- Score each candidate
-    let rankings := candidates.map (fun c =>
+    let rankings : List StrategyScore := candidates.map (fun c =>
       let conf := c.confidence <|> options.globalConfidence
       let rawScore := weightedScore config c.mask
       let confidenceScore := match conf with
         | some cfn => confidenceAdjustedScore config c.mask cfn
         | none => rawScore
       let finalScore := compositeScore rawScore confidenceScore
-      {
-        id := c.id
+      { id := c.id
         mask := c.mask
         rawScore := rawScore
         confidenceScore := confidenceScore
-        finalScore := finalScore
-      }
+        finalScore := finalScore : StrategyScore }
     )
-    
+
     -- Sort by finalScore descending (stable sort by id for ties)
-    let sortedRankings := rankings.sort (fun a b =>
-      if a.finalScore ≠ b.finalScore then a.finalScore > b.finalScore 
+    let sortedRankings := List.mergeSort rankings (fun a b =>
+      if a.finalScore ≠ b.finalScore then a.finalScore > b.finalScore
       else a.id < b.id
     )
-    
+
     let top1 := sortedRankings.head!
     let top2 := sortedRankings.tail.head?
     let leadScore := match top2 with
       | some t2 => top1.finalScore - t2.finalScore
       | none => top1.finalScore
-    
+
     -- Decision logic
     let decision :=
       if top1.finalScore < options.rejectThreshold then
@@ -271,32 +273,32 @@ def scoreStrategies (config : ArbiterConfig) (candidates : List StrategyCandidat
       else
         Decision.SYNTHESIZE
     let synthesized :=
-      if decision = Decision.SYNTHESIZE then
+      if decision == Decision.SYNTHESIZE then
         let contenders := sortedRankings.take 3
         if contenders.isEmpty then
           none
         else
-          let allBits := contenders.bind (fun s => AdaptiveBitmask.activeBits s.mask)
-          let uniqueBits := allBits.eraseDups
+          let allBits : List Nat := contenders.flatMap (fun s => AdaptiveBitmask.activeBits s.mask)
+          let uniqueBits := List.eraseDups allBits
           let requiredVotes := contenders.length / 2 + 1
-          some (uniqueBits.foldl (fun acc bit =>
+          some (List.foldl (fun acc bit =>
             let voteCount := contenders.countP (fun s => AdaptiveBitmask.testBit s.mask bit)
             if voteCount ≥ requiredVotes then
               AdaptiveBitmask.setBit acc bit
             else
               acc
-          ) 0)
+          ) 0 uniqueBits)
       else
         none
-    
-    let result := {
+
+    let result : StrategyDecisionResult := {
       decision := decision
-      selectedStrategyId := if decision = Decision.EXECUTE then some top1.id else none
+      selectedStrategyId := if decision == Decision.EXECUTE then some top1.id else none
       synthesizedMask := synthesized
       leadScore := leadScore
       rankings := sortedRankings
     }
-    
+
     result
 
 /--
@@ -305,20 +307,20 @@ Synthesize a mask from top contender masks.
 Uses strict majority voting: a bit is set if more than half
 of the contender masks have it set.
 -/
-def synthesizeMask (config : ArbiterConfig) (contenders : List StrategyScore) : Bitmask :=
+def synthesizeMask (_config : ArbiterConfig) (contenders : List StrategyScore) : Bitmask :=
   if contenders.isEmpty then 0
   else
-    let allBits := contenders.bind (fun s => AdaptiveBitmask.activeBits s.mask)
-    let uniqueBits := allBits.eraseDups
+    let allBits : List Nat := contenders.flatMap (fun s => AdaptiveBitmask.activeBits s.mask)
+    let uniqueBits := List.eraseDups allBits
     let requiredVotes := contenders.length / 2 + 1
-    
-    uniqueBits.foldl (fun acc bit =>
+
+    List.foldl (fun acc bit =>
       let voteCount := contenders.countP (fun s => AdaptiveBitmask.testBit s.mask bit)
       if voteCount ≥ requiredVotes then
         AdaptiveBitmask.setBit acc bit
       else
         acc
-    ) 0
+    ) 0 uniqueBits
 
 /--
 Create a financial trading arbiter with domain-specific weights.
@@ -331,7 +333,7 @@ Key financial signals:
 - breakout_detected (bit 13): 0.22
 - Emergency bits (56-63): 0.45
 -/
-def createFinancialArbiter (overrides : ArbiterConfig := ArbiterConfig.default) : ArbiterConfig :=
+noncomputable def createFinancialArbiter (overrides : ArbiterConfig := ArbiterConfig.default) : ArbiterConfig :=
   let baseWeights : Fin 64 → Real := fun i =>
     if i.val = 0 || i.val = 1 then 0.25
     else if i.val = 2 || i.val = 3 then 0.20
@@ -356,7 +358,7 @@ Key robotic signals:
 - battery_critical (bit 10): 0.20
 - Emergency bits (56-63): 0.45
 -/
-def createRoboticArbiter (overrides : ArbiterConfig := ArbiterConfig.default) : ArbiterConfig :=
+noncomputable def createRoboticArbiter (overrides : ArbiterConfig := ArbiterConfig.default) : ArbiterConfig :=
   let baseWeights : Fin 64 → Real := fun i =>
     if i.val = 0 then 0.30
     else if i.val = 4 then 0.25

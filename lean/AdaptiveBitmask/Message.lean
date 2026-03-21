@@ -135,7 +135,7 @@ Returns `none` if:
 Returns `some msg` if deserialization succeeds.
 -/
 def deserializeMessage (bytes : List UInt8) : Option BitmaskMessage :=
-  if h : bytes.length ≠ 24 then
+  if _ : bytes.length ≠ 24 then
     none
   else
     let arr := bytes.toArray
@@ -171,7 +171,7 @@ def deserializeMessage (bytes : List UInt8) : Option BitmaskMessage :=
       }
 
 /-- Wire size of a message (always 24 bytes). -/
-def BitmaskMessage.wireSize (msg : BitmaskMessage) : Nat :=
+def BitmaskMessage.wireSize (_msg : BitmaskMessage) : Nat :=
   MESSAGE_SIZE_BYTES
 
 /--

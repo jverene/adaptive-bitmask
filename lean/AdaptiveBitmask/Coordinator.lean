@@ -31,6 +31,7 @@ inductive StaleMessagePolicy where
   | warn
   /-- Drop stale messages. -/
   | drop
+deriving BEq
 
 /-- Drop reason for telemetry. -/
 inductive CoordinatorDropReason where
@@ -118,7 +119,7 @@ def receive (state : CoordinatorState) (msg : BitmaskMessage) :
   let stale := isStaleMessage state msg
   
   -- Handle stale messages based on policy
-  if stale && state.config.staleMessagePolicy = .drop then
+  if stale && state.config.staleMessagePolicy == .drop then
     ({ state with droppedStaleMessages := state.droppedStaleMessages + 1 }, false)
   else
     -- Check if duplicate agent (keep latest)
@@ -150,7 +151,7 @@ Compute per-bit confidence: fraction of agents that set each bit.
 For each bit position p:
   confidence(p) = (number of messages with bit p set) / (total messages)
 -/
-def computeConfidence (messages : List BitmaskMessage) (p : Nat) : Real :=
+noncomputable def computeConfidence (messages : List BitmaskMessage) (p : Nat) : Real :=
   if messages.isEmpty then
     0
   else
@@ -167,8 +168,8 @@ Returns the aggregation result with:
 - uniqueAgents: Number of unique agent IDs
 - staleMessages: Count of schema-mismatch messages
 -/
-def aggregate (state : CoordinatorState) : AggregationResult :=
-  let aggregatedMask := List.foldl (fun acc msg => acc ||| msg.mask) 0 state.buffer
+noncomputable def aggregate (state : CoordinatorState) : AggregationResult :=
+  let aggregatedMask := List.foldl (fun acc (msg : BitmaskMessage) => acc ||| msg.mask) 0 state.buffer
   let uniqueAgents := state.seenAgents.eraseDups.length
   let staleCount := (state.buffer.filter (isStaleMessage state ·)).length
   
@@ -186,7 +187,7 @@ Peek at current consensus without clearing buffer.
 
 Useful for mid-round status queries.
 -/
-def peekAggregate (state : CoordinatorState) : AggregationResult :=
+noncomputable def peekAggregate (state : CoordinatorState) : AggregationResult :=
   aggregate state
 
 /-- Number of unique agents in buffer. -/
@@ -197,13 +198,13 @@ namespace Theorems
 
 /-- Aggregation is commutative (order-independent). -/
 axiom aggregate_comm (msgs1 msgs2 : List BitmaskMessage) :
-  let agg1 := List.foldl (fun acc msg => acc ||| msg.mask) 0 (msgs1 ++ msgs2)
-  let agg2 := List.foldl (fun acc msg => acc ||| msg.mask) 0 (msgs2 ++ msgs1)
+  let agg1 := List.foldl (fun acc (msg : BitmaskMessage) => acc ||| msg.mask) 0 (msgs1 ++ msgs2)
+  let agg2 := List.foldl (fun acc (msg : BitmaskMessage) => acc ||| msg.mask) 0 (msgs2 ++ msgs1)
   agg1 = agg2
 
 /-- Aggregation with empty list yields zero mask. -/
 axiom aggregate_empty :
-  List.foldl (fun acc msg => acc ||| msg.mask) 0 [] = 0
+  List.foldl (fun acc (msg : BitmaskMessage) => acc ||| msg.mask) 0 ([] : List BitmaskMessage) = 0
 
 /-- OR-aggregation is idempotent. -/
 axiom aggregate_idempotent (mask : Bitmask) :
@@ -220,7 +221,7 @@ axiom confidence_empty (p : Nat) :
 /-- Confidence equals 1 when all messages have the bit set. -/
 axiom confidence_all_set (messages : List BitmaskMessage) (p : Nat) 
     (h : ∀ msg ∈ messages, AdaptiveBitmask.testBit msg.mask p = true) :
-  messages.Nonempty → computeConfidence messages p = 1
+  messages ≠ [] → computeConfidence messages p = 1
 
 /-- Confidence equals 0 when no messages have the bit set. -/
 axiom confidence_none_set (messages : List BitmaskMessage) (p : Nat) 
@@ -239,7 +240,7 @@ axiom droppedStaleMonotone (state1 state2 : CoordinatorState)
 
 /-- Receive preserves seen agents (monotonicity). -/
 axiom receive_seenAgents_monotone (state : CoordinatorState) (msg : BitmaskMessage) :
-  let (newState, ok) := receive state msg
+  let (newState, _ok) := receive state msg
   ∀ agentId ∈ state.seenAgents, agentId ∈ newState.seenAgents
 
 /-- Buffer size is at most number of unique agents. -/

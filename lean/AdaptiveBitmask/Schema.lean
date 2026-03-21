@@ -271,12 +271,12 @@ axiom recordActivations_preserves_version (state : SchemaState) (features : List
   (recordActivations state features).version = state.version
 
 axiom prune_version_increment (state : SchemaState) :
-  let (newState, result) := prune state
+  let (newState, _result) := prune state
   newState.featureToBit ≠ state.featureToBit →
   newState.version = state.version + 1
 
 axiom prune_retains_emergency (state : SchemaState) :
-  let (newState, result) := prune state
+  let (newState, _result) := prune state
   let emergencyFeatures := state.featureToBit.keys.filter (isEmergency state)
   ∀ feat ∈ emergencyFeatures.take 8, newState.featureToBit.contains feat
 
