@@ -36,8 +36,8 @@
     "prepublishOnly": "npm run build",
     "lean:build": "cd lean && lake build",
     "lean:test": "cd lean && lake test",
-    "lean:format": "cd lean && lake format",
-    "lean:format:check": "cd lean && lake format --check",
+    "lean:format": "echo 'No Lean formatter configured (lake format is not available)'",
+    "lean:format:check": "echo 'No Lean formatter configured (lake format is not available)'",
     "verify:math": "npm run lean:build && npm run lean:test"
   },
   "keywords": [
