@@ -10,3 +10,8 @@ require mathlib from git
 lean_lib AdaptiveBitmask
 
 lean_lib AdaptiveBitmaskTests
+
+@[test_driver]
+lean_exe test where
+  srcDir := "."
+  root := `AdaptiveBitmaskTests
