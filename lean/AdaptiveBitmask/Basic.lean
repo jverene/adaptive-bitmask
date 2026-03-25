@@ -33,8 +33,8 @@ open Std (HashMap)
 /-- Width of the bitmask in bits (64-bit unsigned). -/
 def BITMASK_WIDTH : Nat := 64
 
-/-- A 64-bit bitmask represented as a natural number. -/
-abbrev Bitmask := Nat
+/-- A 64-bit bitmask represented as a bit vector. -/
+abbrev Bitmask := BitVec 64
 
 /-- Create an empty bitmask (all zeros). -/
 def empty : Bitmask := 0
@@ -115,13 +115,14 @@ def emergencyBits (mask : Bitmask) : Bitmask :=
 
 /-- Serialize bitmask to 8-byte array (little-endian). -/
 def toBytes (mask : Bitmask) : Fin 8 → UInt8 :=
-  fun i => UInt8.ofNat ((mask >>> (8 * i.val)) &&& 0xFF)
+  fun i => UInt8.ofNat ((mask.toNat >>> (8 * i.val)) &&& 0xFF)
 
 /-- Deserialize from 8-byte array (little-endian). -/
 def fromBytes (bytes : Fin 8 → UInt8) : Bitmask :=
-  List.foldl (fun acc (i : Fin 8) =>
+  let natVal := List.foldl (fun acc (i : Fin 8) =>
     acc ||| (UInt8.toNat (bytes i) <<< (8 * i.val))
   ) 0 (List.finRange 8)
+  BitVec.ofNat 64 natVal
 
 /--
 Encode a set of features into a bitmask given a schema mapping.

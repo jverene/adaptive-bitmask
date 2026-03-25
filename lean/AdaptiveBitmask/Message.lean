@@ -54,39 +54,25 @@ Fields:
 -/
 structure BitmaskMessage where
   /-- 64-bit feature bitmask. -/
-  mask : Bitmask
+  mask : BitVec 64
   /-- Unique agent identifier (0 to 2^32-1). -/
-  agentId : Nat
+  agentId : BitVec 32
   /-- Unix timestamp in milliseconds. -/
-  timestampMs : Int
+  timestampMs : BitVec 64
   /-- Schema version this mask was encoded against. -/
-  schemaVersion : Nat
+  schemaVersion : BitVec 32
 deriving Inhabited
 
-/-- Check if agentId is in valid uint32 range. -/
-def isValidAgentId (agentId : Nat) : Prop :=
-  agentId ≤ UINT32_MAX
-
-/-- Check if schemaVersion is in valid uint32 range. -/
-def isValidSchemaVersion (version : Nat) : Prop :=
-  version ≤ UINT32_MAX
-
-/-- Check if mask is in valid uint64 range. -/
-def isValidMask (mask : Bitmask) : Prop :=
-  mask ≤ UINT64_MAX
-
 /-- Validate all message fields are in valid ranges. -/
-def BitmaskMessage.isValid (msg : BitmaskMessage) : Prop :=
-  isValidMask msg.mask ∧
-  isValidAgentId msg.agentId ∧
-  isValidSchemaVersion msg.schemaVersion
+def BitmaskMessage.isValid (_msg : BitmaskMessage) : Prop :=
+  True
 
 /--
 Create a message with current timestamp.
 Note: In Lean, we use a provided timestamp since we don't have IO here.
 -/
-def BitmaskMessage.now (mask : Bitmask) (agentId : Nat) (schemaVersion : Nat)
-    (timestampMs : Int) : BitmaskMessage :=
+def BitmaskMessage.now (mask : BitVec 64) (agentId : BitVec 32) (schemaVersion : BitVec 32)
+    (timestampMs : BitVec 64) : BitmaskMessage :=
   { mask := mask
   , agentId := agentId
   , timestampMs := timestampMs
@@ -103,17 +89,16 @@ Layout:
 -/
 def serializeMessage (msg : BitmaskMessage) : Fin 24 → UInt8 :=
   let maskBytes := fun i : Fin 8 =>
-    UInt8.ofNat ((msg.mask >>> (8 * i.val)) &&& 0xFF)
+    UInt8.ofNat ((msg.mask.toNat >>> (8 * i.val)) &&& 0xFF)
 
   let agentIdBytes := fun i : Fin 4 =>
-    UInt8.ofNat ((msg.agentId >>> (8 * i.val)) &&& 0xFF)
+    UInt8.ofNat ((msg.agentId.toNat >>> (8 * i.val)) &&& 0xFF)
 
   let timestampBytes := fun i : Fin 8 =>
-    let tsNat := Int.toNat (msg.timestampMs + (1 <<< 63))
-    UInt8.ofNat ((tsNat >>> (8 * i.val)) &&& 0xFF)
+    UInt8.ofNat ((msg.timestampMs.toNat >>> (8 * i.val)) &&& 0xFF)
 
   let versionBytes := fun i : Fin 4 =>
-    UInt8.ofNat ((msg.schemaVersion >>> (8 * i.val)) &&& 0xFF)
+    UInt8.ofNat ((msg.schemaVersion.toNat >>> (8 * i.val)) &&& 0xFF)
 
   fun i =>
     if h₁ : i.val < 8 then
@@ -143,25 +128,28 @@ def deserializeMessage (bytes : List UInt8) : Option BitmaskMessage :=
       none
     else
       -- Parse mask (bytes 0-7, little-endian)
-      let mask := List.foldl (fun acc i =>
+      let maskNat := List.foldl (fun acc i =>
         acc ||| (UInt8.toNat arr[i]! <<< (8 * i))
       ) 0 (List.range 8)
+      let mask := BitVec.ofNat 64 maskNat
 
       -- Parse agentId (bytes 8-11, little-endian)
-      let agentId := List.foldl (fun acc i =>
+      let agentIdNat := List.foldl (fun acc i =>
         acc ||| (UInt8.toNat arr[i + 8]! <<< (8 * i))
       ) 0 (List.range 4)
+      let agentId := BitVec.ofNat 32 agentIdNat
 
-      -- Parse timestampMs (bytes 12-19, little-endian, as int64)
+      -- Parse timestampMs (bytes 12-19, little-endian)
       let tsNat := List.foldl (fun acc i =>
         acc ||| (UInt8.toNat arr[i + 12]! <<< (8 * i))
       ) 0 (List.range 8)
-      let timestampMs := Int.ofNat tsNat - (1 <<< 63)
+      let timestampMs := BitVec.ofNat 64 tsNat
 
       -- Parse schemaVersion (bytes 20-23, little-endian)
-      let schemaVersion := List.foldl (fun acc i =>
+      let schemaVersionNat := List.foldl (fun acc i =>
         acc ||| (UInt8.toNat arr[i + 20]! <<< (8 * i))
       ) 0 (List.range 4)
+      let schemaVersion := BitVec.ofNat 32 schemaVersionNat
 
       some {
         mask := mask
@@ -251,20 +239,22 @@ theorem compression_ratio_positive (msg : BitmaskMessage) :
 theorem roundtrip_preserves_validity (msg : BitmaskMessage) (h : msg.isValid) :
   let bytes := (List.finRange 24).map (serializeMessage msg)
   let deserialized := deserializeMessage bytes
-  deserialized.isSome → deserialized.get!.isValid := by sorry
+  deserialized.isSome → deserialized.get!.isValid := by
+  intro bytes deserialized h_some
+  exact trivial
 
 /-- Empty message (all zeros) roundtrips correctly. -/
 theorem empty_message_roundtrip :
-  let msg := { mask := 0, agentId := 0, timestampMs := 0, schemaVersion := 0 }
+  let msg : BitmaskMessage := { mask := 0, agentId := 0, timestampMs := 0, schemaVersion := 0 }
   deserializeMessage ((List.finRange 24).map (serializeMessage msg)) = some msg := by rfl
 
 /-- Maximum values roundtrip correctly. -/
 theorem max_values_roundtrip :
-  let msg := {
-    mask := UINT64_MAX,
-    agentId := UINT32_MAX,
-    timestampMs := (1 <<< 63) - 1,
-    schemaVersion := UINT32_MAX
+  let msg : BitmaskMessage := {
+    mask := ~~~0,
+    agentId := ~~~0,
+    timestampMs := ~~~0,
+    schemaVersion := ~~~0
   }
   deserializeMessage ((List.finRange 24).map (serializeMessage msg)) = some msg := by rfl
 
