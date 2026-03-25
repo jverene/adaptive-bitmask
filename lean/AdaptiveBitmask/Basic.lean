@@ -154,26 +154,31 @@ def decode (mask : Bitmask) (reverseSchema : HashMap (Fin 64) (List String)) : L
 namespace Theorems
 
 /-- Setting a bit makes it test true (when position is valid). -/
-axiom setBit_test_true (mask : Bitmask) (p : Nat) (h : p < BITMASK_WIDTH) :
-  testBit (setBit mask p) p = true
+theorem setBit_test_true (mask : Bitmask) (p : Nat) (h : p < BITMASK_WIDTH) :
+  testBit (setBit mask p) p = true := by
+  sorry
 
 /-- Setting a bit doesn't affect other bits. -/
-axiom setBit_preserves_other (mask : Bitmask) (p q : Nat) 
+theorem setBit_preserves_other (mask : Bitmask) (p q : Nat) 
     (hp : p < BITMASK_WIDTH) (hq : q < BITMASK_WIDTH) (hne : p ≠ q) :
-  testBit (setBit mask p) q = testBit mask q
+  testBit (setBit mask p) q = testBit mask q := by
+  sorry
 
 /-- Clearing a set bit makes it test false. -/
-axiom clearBit_test_false (mask : Bitmask) (p : Nat) (h : p < BITMASK_WIDTH) 
+theorem clearBit_test_false (mask : Bitmask) (p : Nat) (h : p < BITMASK_WIDTH) 
     (hset : testBit mask p = true) :
-  testBit (clearBit mask p) p = false
+  testBit (clearBit mask p) p = false := by
+  sorry
 
 /-- Merge (OR) is commutative. -/
-axiom merge_comm (a b : Bitmask) :
-  merge a b = merge b a
+theorem merge_comm (a b : Bitmask) :
+  merge a b = merge b a := by
+  sorry
 
 /-- Merge (OR) is associative. -/
-axiom merge_assoc (a b c : Bitmask) :
-  merge (merge a b) c = merge a (merge b c)
+theorem merge_assoc (a b c : Bitmask) :
+  merge (merge a b) c = merge a (merge b c) := by
+  sorry
 
 /-- Merge with empty is identity. -/
 theorem merge_empty_left (mask : Bitmask) :
@@ -186,52 +191,62 @@ theorem merge_empty_right (mask : Bitmask) :
   simp [merge, empty]
 
 /-- Intersect (AND) is commutative. -/
-axiom intersect_comm (a b : Bitmask) :
-  intersect a b = intersect b a
+theorem intersect_comm (a b : Bitmask) :
+  intersect a b = intersect b a := by
+  sorry
 
 /-- Delta (XOR) is commutative. -/
-axiom delta_comm (a b : Bitmask) :
-  delta a b = delta b a
+theorem delta_comm (a b : Bitmask) :
+  delta a b = delta b a := by
+  sorry
 
 /-- Hamming distance is symmetric. -/
-axiom hammingDistance_symm (a b : Bitmask) :
-  hammingDistance a b = hammingDistance b a
+theorem hammingDistance_symm (a b : Bitmask) :
+  hammingDistance a b = hammingDistance b a := by
+  sorry
 
 /-- Hamming distance to self is zero. -/
-axiom hammingDistance_self (mask : Bitmask) :
-  hammingDistance mask mask = 0
+theorem hammingDistance_self (mask : Bitmask) :
+  hammingDistance mask mask = 0 := by
+  sorry
 
 /-- Popcount of empty is zero. -/
 theorem popcount_empty :
   popcount empty = 0 := by rfl
 
 /-- Popcount of single bit is one. -/
-axiom popcount_single_bit (p : Nat) (hp : p < BITMASK_WIDTH) :
-  popcount (setBit empty p) = 1
+theorem popcount_single_bit (p : Nat) (hp : p < BITMASK_WIDTH) :
+  popcount (setBit empty p) = 1 := by
+  sorry
 
 /-- activeBits of empty is empty list. -/
 axiom activeBits_empty :
   activeBits empty = []
 
 /-- activeBits length equals popcount. -/
-axiom activeBits_length_eq_popcount (mask : Bitmask) :
-  (activeBits mask).length = popcount mask
+theorem activeBits_length_eq_popcount (mask : Bitmask) :
+  (activeBits mask).length = popcount mask := by
+  sorry
 
 /-- toBytes and fromBytes roundtrip. -/
-axiom serialize_roundtrip (mask : Bitmask) :
-  fromBytes (toBytes mask) = mask
+theorem serialize_roundtrip (mask : Bitmask) :
+  fromBytes (toBytes mask) = mask := by
+  sorry
 
 /-- Each byte from toBytes is in valid range. -/
-axiom toBytes_valid (mask : Bitmask) (i : Fin 8) :
-  UInt8.toNat (toBytes mask i) < 256
+theorem toBytes_valid (mask : Bitmask) (i : Fin 8) :
+  UInt8.toNat (toBytes mask i) < 256 := by
+  sorry
 
 /-- Emergency bits detection is correct. -/
-axiom hasEmergency_correct (mask : Bitmask) :
-  hasEmergency mask = true ↔ (mask &&& (0xFF <<< 56)) ≠ 0
+theorem hasEmergency_correct (mask : Bitmask) :
+  hasEmergency mask = true ↔ (mask &&& (0xFF <<< 56)) ≠ 0 := by
+  sorry
 
 /-- Emergency bits extraction preserves only bits 56-63. -/
-axiom emergencyBits_correct (mask : Bitmask) :
-  ∀ p, p < 56 → testBit (emergencyBits mask) p = false
+theorem emergencyBits_correct (mask : Bitmask) :
+  ∀ p, p < 56 → testBit (emergencyBits mask) p = false := by
+  sorry
 
 end Theorems
 
