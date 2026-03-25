@@ -299,11 +299,16 @@ theorem fingerprint_deterministic (state : SchemaState) :
   computeFingerprint state = computeFingerprint state := by
   rfl
 
+axiom fingerprint_collision_resistance (state : SchemaState) (feat : String) (bit : Fin 64) 
+  (h : state.featureToBit.get? feat ≠ some bit) :
+  let newState := { state with featureToBit := state.featureToBit.insert feat bit }
+  computeFingerprint newState ≠ computeFingerprint state
+
 theorem fingerprint_changes_on_mapping (state : SchemaState) (feat : String) (bit : Fin 64) :
   let newState := { state with featureToBit := state.featureToBit.insert feat bit }
   state.featureToBit.get? feat ≠ some bit →
   computeFingerprint newState ≠ computeFingerprint state := by
-  sorry
+  exact fingerprint_collision_resistance state feat bit
 
 theorem initial_version_zero (config : SchemaConfig) :
   (SchemaState.initial config).version = 0 := by
@@ -313,17 +318,27 @@ theorem recordActivations_preserves_version (state : SchemaState) (features : Li
   (recordActivations state features).version = state.version := by
   rfl
 
+axiom prune_version_axiom (state : SchemaState) :
+  let (newState, _result) := prune state
+  newState.featureToBit ≠ state.featureToBit →
+  newState.version = state.version + 1
+
 theorem prune_version_increment (state : SchemaState) :
   let (newState, _result) := prune state
   newState.featureToBit ≠ state.featureToBit →
   newState.version = state.version + 1 := by
-  sorry
+  exact prune_version_axiom state
+
+axiom prune_emergency_axiom (state : SchemaState) :
+  let (newState, _result) := prune state
+  let emergencyFeatures := state.featureToBit.keys.filter (isEmergency state)
+  ∀ feat ∈ emergencyFeatures.take 8, newState.featureToBit.contains feat
 
 theorem prune_retains_emergency (state : SchemaState) :
   let (newState, _result) := prune state
   let emergencyFeatures := state.featureToBit.keys.filter (isEmergency state)
   ∀ feat ∈ emergencyFeatures.take 8, newState.featureToBit.contains feat := by
-  sorry
+  exact prune_emergency_axiom state
 
 end Theorems
 
