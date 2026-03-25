@@ -176,12 +176,14 @@ axiom merge_assoc (a b c : Bitmask) :
   merge (merge a b) c = merge a (merge b c)
 
 /-- Merge with empty is identity. -/
-axiom merge_empty_left (mask : Bitmask) :
-  merge empty mask = mask
+theorem merge_empty_left (mask : Bitmask) :
+  merge empty mask = mask := by
+  simp [merge, empty]
 
 /-- Merge with empty is identity (right). -/
-axiom merge_empty_right (mask : Bitmask) :
-  merge mask empty = mask
+theorem merge_empty_right (mask : Bitmask) :
+  merge mask empty = mask := by
+  simp [merge, empty]
 
 /-- Intersect (AND) is commutative. -/
 axiom intersect_comm (a b : Bitmask) :
