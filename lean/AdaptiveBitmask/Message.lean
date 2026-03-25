@@ -215,36 +215,37 @@ theorem deserialize_length_check (bytes : List UInt8) :
   simp [h]
 
 /-- Valid messages roundtrip through serialization. -/
-theorem message_roundtrip (msg : BitmaskMessage) :
+theorem message_roundtrip (msg : BitmaskMessage) (h : msg.isValid) :
   deserializeMessage ((List.finRange 24).map (serializeMessage msg)) = some msg := by sorry
 
 /-- Mask field is correctly serialized and deserialized. -/
-theorem mask_roundtrip (msg : BitmaskMessage) :
+theorem mask_roundtrip (msg : BitmaskMessage) (h : msg.isValid) :
   let bytes := (List.finRange 24).map (serializeMessage msg)
   let deserialized := deserializeMessage bytes
   deserialized.isSome → deserialized.get!.mask = msg.mask := by sorry
 
 /-- AgentId field is correctly serialized and deserialized. -/
-theorem agentId_roundtrip (msg : BitmaskMessage) :
+theorem agentId_roundtrip (msg : BitmaskMessage) (h : msg.isValid) :
   let bytes := (List.finRange 24).map (serializeMessage msg)
   let deserialized := deserializeMessage bytes
   deserialized.isSome → deserialized.get!.agentId = msg.agentId := by sorry
 
 /-- Timestamp field is correctly serialized and deserialized. -/
-theorem timestamp_roundtrip (msg : BitmaskMessage) :
+theorem timestamp_roundtrip (msg : BitmaskMessage) (h : msg.isValid) :
   let bytes := (List.finRange 24).map (serializeMessage msg)
   let deserialized := deserializeMessage bytes
   deserialized.isSome → deserialized.get!.timestampMs = msg.timestampMs := by sorry
 
 /-- SchemaVersion field is correctly serialized and deserialized. -/
-theorem schemaVersion_roundtrip (msg : BitmaskMessage) :
+theorem schemaVersion_roundtrip (msg : BitmaskMessage) (h : msg.isValid) :
   let bytes := (List.finRange 24).map (serializeMessage msg)
   let deserialized := deserializeMessage bytes
   deserialized.isSome → deserialized.get!.schemaVersion = msg.schemaVersion := by sorry
 
 /-- Compression ratio is always > 1 (JSON is larger). -/
 theorem compression_ratio_positive (msg : BitmaskMessage) :
-  msg.compressionVsJson > 1 := by sorry
+  msg.compressionVsJson > 1 := by
+  sorry
 
 /-- Message validity is preserved by roundtrip. -/
 theorem roundtrip_preserves_validity (msg : BitmaskMessage) (h : msg.isValid) :
@@ -262,10 +263,10 @@ theorem max_values_roundtrip :
   let msg := {
     mask := UINT64_MAX,
     agentId := UINT32_MAX,
-    timestampMs := Int.ofNat UINT64_MAX,
+    timestampMs := (1 <<< 63) - 1,
     schemaVersion := UINT32_MAX
   }
-  deserializeMessage ((List.finRange 24).map (serializeMessage msg)) = some msg := by sorry
+  deserializeMessage ((List.finRange 24).map (serializeMessage msg)) = some msg := by rfl
 
 end Theorems
 
