@@ -199,8 +199,8 @@ def BitmaskMessage.toString (msg : BitmaskMessage) : String :=
 namespace Theorems
 
 /-- Wire size is exactly 24 bytes. -/
-axiom wireSize_correct (msg : BitmaskMessage) :
-  msg.wireSize = MESSAGE_SIZE_BYTES
+theorem wireSize_correct (msg : BitmaskMessage) :
+  msg.wireSize = MESSAGE_SIZE_BYTES := by rfl
 
 /-- Serialization produces exactly 24 bytes. -/
 theorem serialize_length (msg : BitmaskMessage) :
@@ -208,61 +208,64 @@ theorem serialize_length (msg : BitmaskMessage) :
   simp
 
 /-- Deserialize rejects arrays with wrong length. -/
-axiom deserialize_length_check (bytes : List UInt8) :
-  bytes.length ≠ 24 → deserializeMessage bytes = none
+theorem deserialize_length_check (bytes : List UInt8) :
+  bytes.length ≠ 24 → deserializeMessage bytes = none := by
+  intro h
+  unfold deserializeMessage
+  simp [h]
 
 /-- Valid messages roundtrip through serialization. -/
-axiom message_roundtrip (msg : BitmaskMessage) :
-  deserializeMessage ((List.finRange 24).map (serializeMessage msg)) = some msg
+theorem message_roundtrip (msg : BitmaskMessage) :
+  deserializeMessage ((List.finRange 24).map (serializeMessage msg)) = some msg := by sorry
 
 /-- Mask field is correctly serialized and deserialized. -/
-axiom mask_roundtrip (msg : BitmaskMessage) :
+theorem mask_roundtrip (msg : BitmaskMessage) :
   let bytes := (List.finRange 24).map (serializeMessage msg)
   let deserialized := deserializeMessage bytes
-  deserialized.isSome → deserialized.get!.mask = msg.mask
+  deserialized.isSome → deserialized.get!.mask = msg.mask := by sorry
 
 /-- AgentId field is correctly serialized and deserialized. -/
-axiom agentId_roundtrip (msg : BitmaskMessage) :
+theorem agentId_roundtrip (msg : BitmaskMessage) :
   let bytes := (List.finRange 24).map (serializeMessage msg)
   let deserialized := deserializeMessage bytes
-  deserialized.isSome → deserialized.get!.agentId = msg.agentId
+  deserialized.isSome → deserialized.get!.agentId = msg.agentId := by sorry
 
 /-- Timestamp field is correctly serialized and deserialized. -/
-axiom timestamp_roundtrip (msg : BitmaskMessage) :
+theorem timestamp_roundtrip (msg : BitmaskMessage) :
   let bytes := (List.finRange 24).map (serializeMessage msg)
   let deserialized := deserializeMessage bytes
-  deserialized.isSome → deserialized.get!.timestampMs = msg.timestampMs
+  deserialized.isSome → deserialized.get!.timestampMs = msg.timestampMs := by sorry
 
 /-- SchemaVersion field is correctly serialized and deserialized. -/
-axiom schemaVersion_roundtrip (msg : BitmaskMessage) :
+theorem schemaVersion_roundtrip (msg : BitmaskMessage) :
   let bytes := (List.finRange 24).map (serializeMessage msg)
   let deserialized := deserializeMessage bytes
-  deserialized.isSome → deserialized.get!.schemaVersion = msg.schemaVersion
+  deserialized.isSome → deserialized.get!.schemaVersion = msg.schemaVersion := by sorry
 
 /-- Compression ratio is always > 1 (JSON is larger). -/
-axiom compression_ratio_positive (msg : BitmaskMessage) :
-  msg.compressionVsJson > 1
+theorem compression_ratio_positive (msg : BitmaskMessage) :
+  msg.compressionVsJson > 1 := by sorry
 
 /-- Message validity is preserved by roundtrip. -/
-axiom roundtrip_preserves_validity (msg : BitmaskMessage) (h : msg.isValid) :
+theorem roundtrip_preserves_validity (msg : BitmaskMessage) (h : msg.isValid) :
   let bytes := (List.finRange 24).map (serializeMessage msg)
   let deserialized := deserializeMessage bytes
-  deserialized.isSome → deserialized.get!.isValid
+  deserialized.isSome → deserialized.get!.isValid := by sorry
 
 /-- Empty message (all zeros) roundtrips correctly. -/
-axiom empty_message_roundtrip :
+theorem empty_message_roundtrip :
   let msg := { mask := 0, agentId := 0, timestampMs := 0, schemaVersion := 0 }
-  deserializeMessage ((List.finRange 24).map (serializeMessage msg)) = some msg
+  deserializeMessage ((List.finRange 24).map (serializeMessage msg)) = some msg := by rfl
 
 /-- Maximum values roundtrip correctly. -/
-axiom max_values_roundtrip :
+theorem max_values_roundtrip :
   let msg := {
     mask := UINT64_MAX,
     agentId := UINT32_MAX,
     timestampMs := Int.ofNat UINT64_MAX,
     schemaVersion := UINT32_MAX
   }
-  deserializeMessage ((List.finRange 24).map (serializeMessage msg)) = some msg
+  deserializeMessage ((List.finRange 24).map (serializeMessage msg)) = some msg := by sorry
 
 end Theorems
 
