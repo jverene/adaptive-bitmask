@@ -202,8 +202,8 @@ axiom hammingDistance_self (mask : Bitmask) :
   hammingDistance mask mask = 0
 
 /-- Popcount of empty is zero. -/
-axiom popcount_empty :
-  popcount empty = 0
+theorem popcount_empty :
+  popcount empty = 0 := by rfl
 
 /-- Popcount of single bit is one. -/
 axiom popcount_single_bit (p : Nat) (hp : p < BITMASK_WIDTH) :
