@@ -197,73 +197,79 @@ def uniqueAgentCount (state : CoordinatorState) : Nat :=
 namespace Theorems
 
 /-- Aggregation is commutative (order-independent). -/
-axiom aggregate_comm (msgs1 msgs2 : List BitmaskMessage) :
+theorem aggregate_comm (msgs1 msgs2 : List BitmaskMessage) :
   let agg1 := List.foldl (fun acc (msg : BitmaskMessage) => acc ||| msg.mask) 0 (msgs1 ++ msgs2)
   let agg2 := List.foldl (fun acc (msg : BitmaskMessage) => acc ||| msg.mask) 0 (msgs2 ++ msgs1)
-  agg1 = agg2
+  agg1 = agg2 := by sorry
 
 /-- Aggregation with empty list yields zero mask. -/
-axiom aggregate_empty :
-  List.foldl (fun acc (msg : BitmaskMessage) => acc ||| msg.mask) 0 ([] : List BitmaskMessage) = 0
+theorem aggregate_empty :
+  List.foldl (fun acc (msg : BitmaskMessage) => acc ||| msg.mask) 0 ([] : List BitmaskMessage) = 0 := by
+  rfl
 
 /-- OR-aggregation is idempotent. -/
-axiom aggregate_idempotent (mask : Bitmask) :
-  mask ||| mask = mask
+theorem aggregate_idempotent (mask : Bitmask) :
+  mask ||| mask = mask := by sorry
 
 /-- Confidence is bounded in [0, 1]. -/
-axiom confidence_bounds (messages : List BitmaskMessage) (p : Nat) :
-  0 ≤ computeConfidence messages p ∧ computeConfidence messages p ≤ 1
+theorem confidence_bounds (messages : List BitmaskMessage) (p : Nat) :
+  0 ≤ computeConfidence messages p ∧ computeConfidence messages p ≤ 1 := by sorry
 
 /-- Confidence is zero for empty message list. -/
-axiom confidence_empty (p : Nat) :
-  computeConfidence [] p = 0
+theorem confidence_empty (p : Nat) :
+  computeConfidence [] p = 0 := by
+  rfl
 
 /-- Confidence equals 1 when all messages have the bit set. -/
-axiom confidence_all_set (messages : List BitmaskMessage) (p : Nat) 
+theorem confidence_all_set (messages : List BitmaskMessage) (p : Nat) 
     (h : ∀ msg ∈ messages, AdaptiveBitmask.testBit msg.mask p = true) :
-  messages ≠ [] → computeConfidence messages p = 1
+  messages ≠ [] → computeConfidence messages p = 1 := by sorry
 
 /-- Confidence equals 0 when no messages have the bit set. -/
-axiom confidence_none_set (messages : List BitmaskMessage) (p : Nat) 
+theorem confidence_none_set (messages : List BitmaskMessage) (p : Nat) 
     (h : ∀ msg ∈ messages, AdaptiveBitmask.testBit msg.mask p = false) :
-  computeConfidence messages p = 0
+  computeConfidence messages p = 0 := by sorry
 
 /-- Stale message count is at most total message count. -/
-axiom stale_count_bound (state : CoordinatorState) :
+theorem stale_count_bound (state : CoordinatorState) :
   let staleCount := (state.buffer.filter (isStaleMessage state ·)).length
-  staleCount ≤ state.buffer.length
+  staleCount ≤ state.buffer.length := by sorry
 
 /-- Dropped stale messages only increases. -/
-axiom droppedStaleMonotone (state1 state2 : CoordinatorState) 
+theorem droppedStaleMonotone (state1 state2 : CoordinatorState) 
     (h : state2.droppedStaleMessages ≥ state1.droppedStaleMessages) :
-  state2.droppedStaleMessages ≥ state1.droppedStaleMessages
+  state2.droppedStaleMessages ≥ state1.droppedStaleMessages := by
+  exact h
 
 /-- Receive preserves seen agents (monotonicity). -/
-axiom receive_seenAgents_monotone (state : CoordinatorState) (msg : BitmaskMessage) :
+theorem receive_seenAgents_monotone (state : CoordinatorState) (msg : BitmaskMessage) :
   let (newState, _ok) := receive state msg
-  ∀ agentId ∈ state.seenAgents, agentId ∈ newState.seenAgents
+  ∀ agentId ∈ state.seenAgents, agentId ∈ newState.seenAgents := by sorry
 
 /-- Buffer size is at most number of unique agents. -/
-axiom buffer_size_bound (state : CoordinatorState) :
-  state.buffer.length ≤ state.seenAgents.eraseDups.length
+theorem buffer_size_bound (state : CoordinatorState) :
+  state.buffer.length ≤ state.seenAgents.eraseDups.length := by sorry
 
 /-- Aggregate result message count equals buffer length. -/
-axiom aggregate_messageCount (state : CoordinatorState) :
-  (aggregate state).messageCount = state.buffer.length
+theorem aggregate_messageCount (state : CoordinatorState) :
+  (aggregate state).messageCount = state.buffer.length := by
+  rfl
 
 /-- Aggregate result uniqueAgents equals deduplicated seenAgents. -/
-axiom aggregate_uniqueAgents (state : CoordinatorState) :
-  (aggregate state).uniqueAgents = state.seenAgents.eraseDups.length
+theorem aggregate_uniqueAgents (state : CoordinatorState) :
+  (aggregate state).uniqueAgents = state.seenAgents.eraseDups.length := by
+  rfl
 
 /-- Confidence function is well-defined (same input → same output). -/
-axiom confidence_deterministic (messages : List BitmaskMessage) (p : Nat) :
-  computeConfidence messages p = computeConfidence messages p
+theorem confidence_deterministic (messages : List BitmaskMessage) (p : Nat) :
+  computeConfidence messages p = computeConfidence messages p := by
+  rfl
 
 /-- OR-aggregate preserves set bits from any input message. -/
-axiom aggregate_preserves_bits (state : CoordinatorState) (msg : BitmaskMessage) 
+theorem aggregate_preserves_bits (state : CoordinatorState) (msg : BitmaskMessage) 
     (h : msg ∈ state.buffer) :
   ∀ p, AdaptiveBitmask.testBit msg.mask p = true → 
-       AdaptiveBitmask.testBit (aggregate state).aggregatedMask p = true
+       AdaptiveBitmask.testBit (aggregate state).aggregatedMask p = true := by sorry
 
 end Theorems
 
