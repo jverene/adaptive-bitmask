@@ -235,50 +235,66 @@ def prune (state : SchemaState) : SchemaState × PruneResult :=
 
 namespace Theorems
 
-axiom collision_rate_80 :
-  |theoreticalCollisionRate 80 - 0.712| < 0.001
+theorem collision_rate_80 :
+  |theoreticalCollisionRate 80 - 0.712| < 0.001 := by
+  unfold theoreticalCollisionRate
+  norm_num
 
-axiom expected_excluded_128 :
-  |expectedExcludedFeatures 128 - 72.52| < 0.01
+theorem expected_excluded_128 :
+  |expectedExcludedFeatures 128 - 72.52| < 0.01 := by
+  unfold expectedExcludedFeatures
+  norm_num
 
-axiom expected_excluded_80 :
-  |expectedExcludedFeatures 80 - 34.2| < 0.1
+theorem expected_excluded_80 :
+  |expectedExcludedFeatures 80 - 34.2| < 0.1 := by
+  unfold expectedExcludedFeatures
+  norm_num
 
-axiom collision_rate_monotone (m n : Nat) (h : m ≤ n) :
-  theoreticalCollisionRate m ≤ theoreticalCollisionRate n
+theorem collision_rate_monotone (m n : Nat) (h : m ≤ n) :
+  theoreticalCollisionRate m ≤ theoreticalCollisionRate n := by
+  sorry
 
-axiom expected_excluded_monotone (m n : Nat) (h : m ≤ n) :
-  expectedExcludedFeatures m ≤ expectedExcludedFeatures n
+theorem expected_excluded_monotone (m n : Nat) (h : m ≤ n) :
+  expectedExcludedFeatures m ≤ expectedExcludedFeatures n := by
+  sorry
 
-axiom collision_rate_bounds (m : Nat) :
-  0 ≤ theoreticalCollisionRate m ∧ theoreticalCollisionRate m ≤ 1
+theorem collision_rate_bounds (m : Nat) :
+  0 ≤ theoreticalCollisionRate m ∧ theoreticalCollisionRate m ≤ 1 := by
+  sorry
 
-axiom expected_excluded_nonneg (m : Nat) :
-  0 ≤ expectedExcludedFeatures m
+theorem expected_excluded_nonneg (m : Nat) :
+  0 ≤ expectedExcludedFeatures m := by
+  sorry
 
-axiom fingerprint_deterministic (state : SchemaState) :
-  computeFingerprint state = computeFingerprint state
+theorem fingerprint_deterministic (state : SchemaState) :
+  computeFingerprint state = computeFingerprint state := by
+  rfl
 
-axiom fingerprint_changes_on_mapping (state : SchemaState) (feat : String) (bit : Fin 64) :
+theorem fingerprint_changes_on_mapping (state : SchemaState) (feat : String) (bit : Fin 64) :
   let newState := { state with featureToBit := state.featureToBit.insert feat bit }
   state.featureToBit.get? feat ≠ some bit →
-  computeFingerprint newState ≠ computeFingerprint state
+  computeFingerprint newState ≠ computeFingerprint state := by
+  sorry
 
-axiom initial_version_zero (config : SchemaConfig) :
-  (SchemaState.initial config).version = 0
+theorem initial_version_zero (config : SchemaConfig) :
+  (SchemaState.initial config).version = 0 := by
+  rfl
 
-axiom recordActivations_preserves_version (state : SchemaState) (features : List String) :
-  (recordActivations state features).version = state.version
+theorem recordActivations_preserves_version (state : SchemaState) (features : List String) :
+  (recordActivations state features).version = state.version := by
+  rfl
 
-axiom prune_version_increment (state : SchemaState) :
+theorem prune_version_increment (state : SchemaState) :
   let (newState, _result) := prune state
   newState.featureToBit ≠ state.featureToBit →
-  newState.version = state.version + 1
+  newState.version = state.version + 1 := by
+  sorry
 
-axiom prune_retains_emergency (state : SchemaState) :
+theorem prune_retains_emergency (state : SchemaState) :
   let (newState, _result) := prune state
   let emergencyFeatures := state.featureToBit.keys.filter (isEmergency state)
-  ∀ feat ∈ emergencyFeatures.take 8, newState.featureToBit.contains feat
+  ∀ feat ∈ emergencyFeatures.take 8, newState.featureToBit.contains feat := by
+  sorry
 
 end Theorems
 
