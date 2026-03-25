@@ -223,17 +223,40 @@ theorem confidence_empty (p : Nat) :
 /-- Confidence equals 1 when all messages have the bit set. -/
 theorem confidence_all_set (messages : List BitmaskMessage) (p : Nat) 
     (h : ∀ msg ∈ messages, AdaptiveBitmask.testBit msg.mask p = true) :
-  messages ≠ [] → computeConfidence messages p = 1 := by sorry
+  messages ≠ [] → computeConfidence messages p = 1 := by
+  intro h_not_empty
+  unfold computeConfidence
+  cases messages
+  · contradiction
+  · rename_i hd tl
+    have h_filter : ((hd :: tl).filter (fun msg => AdaptiveBitmask.testBit msg.mask p)) = hd :: tl := by
+      apply List.filter_eq_self.mpr
+      intro a ha
+      exact h a ha
+    simp only [List.isEmpty_cons, h_filter]
+    dsimp
+    apply div_self
+    simp [Nat.cast_add_one_ne_zero]
 
 /-- Confidence equals 0 when no messages have the bit set. -/
 theorem confidence_none_set (messages : List BitmaskMessage) (p : Nat) 
     (h : ∀ msg ∈ messages, AdaptiveBitmask.testBit msg.mask p = false) :
-  computeConfidence messages p = 0 := by sorry
+  computeConfidence messages p = 0 := by
+  unfold computeConfidence
+  split
+  · rfl
+  · have h_filter : (messages.filter (fun msg => AdaptiveBitmask.testBit msg.mask p)) = [] := by
+      apply List.filter_eq_nil_iff.mpr
+      intro a ha
+      have h1 := h a ha
+      simp [h1]
+    simp [h_filter]
 
 /-- Stale message count is at most total message count. -/
 theorem stale_count_bound (state : CoordinatorState) :
   let staleCount := (state.buffer.filter (isStaleMessage state ·)).length
-  staleCount ≤ state.buffer.length := by sorry
+  staleCount ≤ state.buffer.length := by
+  exact List.length_filter_le _ _
 
 /-- Dropped stale messages only increases. -/
 theorem droppedStaleMonotone (state1 state2 : CoordinatorState) 
@@ -244,7 +267,24 @@ theorem droppedStaleMonotone (state1 state2 : CoordinatorState)
 /-- Receive preserves seen agents (monotonicity). -/
 theorem receive_seenAgents_monotone (state : CoordinatorState) (msg : BitmaskMessage) :
   let (newState, _ok) := receive state msg
-  ∀ agentId ∈ state.seenAgents, agentId ∈ newState.seenAgents := by sorry
+  ∀ agentId ∈ state.seenAgents, agentId ∈ newState.seenAgents := by
+  change ∀ agentId ∈ state.seenAgents, agentId ∈ (receive state msg).1.seenAgents
+  intro agentId h
+  have h_rcv : (receive state msg).1.seenAgents = state.seenAgents ∨ (receive state msg).1.seenAgents = state.seenAgents ++ [msg.agentId] := by
+    unfold receive
+    dsimp
+    cases h1 : (isStaleMessage state msg && state.config.staleMessagePolicy == StaleMessagePolicy.drop)
+    · dsimp
+      cases h2 : (state.seenAgents.contains msg.agentId)
+      · dsimp
+        right; rfl
+      · dsimp
+        left; rfl
+    · dsimp
+      left; rfl
+  rcases h_rcv with heq | heq
+  · rw [heq]; exact h
+  · rw [heq]; simp [h]
 
 /-- Buffer size is at most number of unique agents. -/
 theorem buffer_size_bound (state : CoordinatorState) :
