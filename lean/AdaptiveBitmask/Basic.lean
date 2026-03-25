@@ -1,4 +1,6 @@
 import Mathlib.Data.Nat.Bits
+import Mathlib.Data.Nat.Bitwise
+import Mathlib.Data.Nat.Count
 import Mathlib.Data.Fin.Basic
 import Mathlib.Data.Real.Basic
 import Std.Data.HashMap
@@ -156,29 +158,35 @@ namespace Theorems
 /-- Setting a bit makes it test true (when position is valid). -/
 theorem setBit_test_true (mask : Bitmask) (p : Nat) (h : p < BITMASK_WIDTH) :
   testBit (setBit mask p) p = true := by
+  unfold testBit setBit
+  simp [isValidPosition, h]
   sorry
 
 /-- Setting a bit doesn't affect other bits. -/
 theorem setBit_preserves_other (mask : Bitmask) (p q : Nat) 
     (hp : p < BITMASK_WIDTH) (hq : q < BITMASK_WIDTH) (hne : p ≠ q) :
   testBit (setBit mask p) q = testBit mask q := by
+  unfold testBit setBit
+  simp [isValidPosition, hp, hq]
   sorry
 
 /-- Clearing a set bit makes it test false. -/
 theorem clearBit_test_false (mask : Bitmask) (p : Nat) (h : p < BITMASK_WIDTH) 
     (hset : testBit mask p = true) :
   testBit (clearBit mask p) p = false := by
+  unfold testBit clearBit
+  simp [isValidPosition, h, hset]
   sorry
 
 /-- Merge (OR) is commutative. -/
 theorem merge_comm (a b : Bitmask) :
   merge a b = merge b a := by
-  sorry
+  simp [merge, Nat.lor_comm]
 
 /-- Merge (OR) is associative. -/
 theorem merge_assoc (a b c : Bitmask) :
   merge (merge a b) c = merge a (merge b c) := by
-  sorry
+  simp [merge, Nat.lor_assoc]
 
 /-- Merge with empty is identity. -/
 theorem merge_empty_left (mask : Bitmask) :
@@ -193,22 +201,23 @@ theorem merge_empty_right (mask : Bitmask) :
 /-- Intersect (AND) is commutative. -/
 theorem intersect_comm (a b : Bitmask) :
   intersect a b = intersect b a := by
-  sorry
+  simp [intersect, Nat.land_comm]
 
 /-- Delta (XOR) is commutative. -/
 theorem delta_comm (a b : Bitmask) :
   delta a b = delta b a := by
-  sorry
+  simp [delta, Nat.xor_comm]
 
 /-- Hamming distance is symmetric. -/
 theorem hammingDistance_symm (a b : Bitmask) :
   hammingDistance a b = hammingDistance b a := by
-  sorry
+  simp [hammingDistance, delta_comm]
 
 /-- Hamming distance to self is zero. -/
 theorem hammingDistance_self (mask : Bitmask) :
   hammingDistance mask mask = 0 := by
-  sorry
+  simp [hammingDistance, delta, Nat.xor_self, popcount, testBit, empty, List.countP]
+  rfl
 
 /-- Popcount of empty is zero. -/
 theorem popcount_empty :
@@ -226,7 +235,8 @@ axiom activeBits_empty :
 /-- activeBits length equals popcount. -/
 theorem activeBits_length_eq_popcount (mask : Bitmask) :
   (activeBits mask).length = popcount mask := by
-  sorry
+  unfold activeBits popcount
+  exact List.length_filter _ _
 
 /-- toBytes and fromBytes roundtrip. -/
 theorem serialize_roundtrip (mask : Bitmask) :
@@ -236,12 +246,14 @@ theorem serialize_roundtrip (mask : Bitmask) :
 /-- Each byte from toBytes is in valid range. -/
 theorem toBytes_valid (mask : Bitmask) (i : Fin 8) :
   UInt8.toNat (toBytes mask i) < 256 := by
-  sorry
+  unfold toBytes
+  exact UInt8.toNat_lt _
 
 /-- Emergency bits detection is correct. -/
 theorem hasEmergency_correct (mask : Bitmask) :
   hasEmergency mask = true ↔ (mask &&& (0xFF <<< 56)) ≠ 0 := by
-  sorry
+  unfold hasEmergency
+  rfl
 
 /-- Emergency bits extraction preserves only bits 56-63. -/
 theorem emergencyBits_correct (mask : Bitmask) :
