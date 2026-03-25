@@ -2,6 +2,9 @@ import AdaptiveBitmask.Basic
 import Std.Data.HashMap
 import Mathlib.Data.Real.Basic
 import Mathlib.Tactic.NormNum
+import Mathlib.Tactic.Linarith
+import Mathlib.Algebra.Order.Ring.Pow
+import Mathlib.Tactic.Ring
 
 /-!
 # Schema Management and Collision Theory
@@ -252,19 +255,45 @@ theorem expected_excluded_80 :
 
 theorem collision_rate_monotone (m n : Nat) (h : m ≤ n) :
   theoreticalCollisionRate m ≤ theoreticalCollisionRate n := by
-  sorry
+  unfold theoreticalCollisionRate
+  have h1 : (0 : Real) ≤ 1 - 1/64 := by norm_num
+  have h2 : 1 - 1/64 ≤ (1 : Real) := by norm_num
+  have h3 : m - 1 ≤ n - 1 := Nat.sub_le_sub_right h 1
+  have h4 : (1 - 1/64 : Real) ^ (n - 1) ≤ (1 - 1/64 : Real) ^ (m - 1) := pow_le_pow_of_le_one h1 h2 h3
+  linarith
+
+theorem expected_excluded_step (m : Nat) :
+  expectedExcludedFeatures m ≤ expectedExcludedFeatures (m + 1) := by
+  unfold expectedExcludedFeatures
+  have h1 : (0 : Real) ≤ 1 - 1/64 := by norm_num
+  have h2 : 1 - 1/64 ≤ (1 : Real) := by norm_num
+  have h3 : (1 - 1/64 : Real) ^ m ≤ 1 := pow_le_one₀ h1 h2
+  have h4 : (1 - 1/64 : Real) ^ (m + 1) = (1 - 1/64 : Real) ^ m * (1 - 1/64) := pow_succ (1 - 1/64 : Real) m
+  push_cast
+  linarith
 
 theorem expected_excluded_monotone (m n : Nat) (h : m ≤ n) :
   expectedExcludedFeatures m ≤ expectedExcludedFeatures n := by
-  sorry
+  induction h with
+  | refl => rfl
+  | step hk ih => exact le_trans ih (expected_excluded_step _)
 
 theorem collision_rate_bounds (m : Nat) :
   0 ≤ theoreticalCollisionRate m ∧ theoreticalCollisionRate m ≤ 1 := by
-  sorry
+  unfold theoreticalCollisionRate
+  have h1 : (0 : Real) ≤ 1 - 1/64 := by norm_num
+  have h2 : 1 - 1/64 ≤ (1 : Real) := by norm_num
+  have p1 : (0 : Real) ≤ (1 - 1/64) ^ (m - 1) := pow_nonneg h1 (m - 1)
+  have p2 : (1 - 1/64 : Real) ^ (m - 1) ≤ 1 := pow_le_one₀ h1 h2
+  constructor
+  · linarith
+  · linarith
 
 theorem expected_excluded_nonneg (m : Nat) :
   0 ≤ expectedExcludedFeatures m := by
-  sorry
+  unfold expectedExcludedFeatures
+  have h : 1 + (m : Real) * (-1/64) ≤ (1 + (-1/64 : Real)) ^ m := one_add_mul_le_pow (by norm_num) m
+  linarith
 
 theorem fingerprint_deterministic (state : SchemaState) :
   computeFingerprint state = computeFingerprint state := by
