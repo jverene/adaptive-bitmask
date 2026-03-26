@@ -1,6 +1,7 @@
 import AdaptiveBitmask.Basic
 import Mathlib.Data.UInt
 import Mathlib.Data.Int.Basic
+import Mathlib.Tactic.Linarith
 
 /-!
 # Message Wire Format
@@ -88,27 +89,15 @@ Layout:
 - Bytes 20-23: schemaVersion (uint32, little-endian)
 -/
 def serializeMessage (msg : BitmaskMessage) : Fin 24 → UInt8 :=
-  let maskBytes := fun i : Fin 8 =>
-    UInt8.ofNat ((msg.mask.toNat >>> (8 * i.val)) &&& 0xFF)
-
-  let agentIdBytes := fun i : Fin 4 =>
-    UInt8.ofNat ((msg.agentId.toNat >>> (8 * i.val)) &&& 0xFF)
-
-  let timestampBytes := fun i : Fin 8 =>
-    UInt8.ofNat ((msg.timestampMs.toNat >>> (8 * i.val)) &&& 0xFF)
-
-  let versionBytes := fun i : Fin 4 =>
-    UInt8.ofNat ((msg.schemaVersion.toNat >>> (8 * i.val)) &&& 0xFF)
-
   fun i =>
-    if h₁ : i.val < 8 then
-      maskBytes ⟨i.val, h₁⟩
-    else if h₂ : i.val < 12 then
-      agentIdBytes ⟨i.val - 8, by omega⟩
-    else if h₃ : i.val < 20 then
-      timestampBytes ⟨i.val - 12, by omega⟩
+    if i.val < 8 then
+      UInt8.ofBitVec (msg.mask.extractLsb' (8 * i.val) 8)
+    else if i.val < 12 then
+      UInt8.ofBitVec (msg.agentId.extractLsb' (8 * (i.val - 8)) 8)
+    else if i.val < 20 then
+      UInt8.ofBitVec (msg.timestampMs.extractLsb' (8 * (i.val - 12)) 8)
     else
-      versionBytes ⟨i.val - 20, by omega⟩
+      UInt8.ofBitVec (msg.schemaVersion.extractLsb' (8 * (i.val - 20)) 8)
 
 /--
 Deserialize message from byte array.
@@ -124,32 +113,38 @@ def deserializeMessage (bytes : List UInt8) : Option BitmaskMessage :=
     none
   else
     let arr := bytes.toArray
-    if _ : arr.size ≠ 24 then
-      none
-    else
-      -- Parse mask (bytes 0-7, little-endian)
-      let maskNat := List.foldl (fun acc i =>
-        acc ||| (UInt8.toNat arr[i]! <<< (8 * i))
-      ) 0 (List.range 8)
-      let mask := BitVec.ofNat 64 maskNat
+    if h : arr.size = 24 then
+      let mask :=
+        (arr[0]'(by omega)).toBitVec.zeroExtend 64 |||
+        ((arr[1]'(by omega)).toBitVec.zeroExtend 64 <<< 8) |||
+        ((arr[2]'(by omega)).toBitVec.zeroExtend 64 <<< 16) |||
+        ((arr[3]'(by omega)).toBitVec.zeroExtend 64 <<< 24) |||
+        ((arr[4]'(by omega)).toBitVec.zeroExtend 64 <<< 32) |||
+        ((arr[5]'(by omega)).toBitVec.zeroExtend 64 <<< 40) |||
+        ((arr[6]'(by omega)).toBitVec.zeroExtend 64 <<< 48) |||
+        ((arr[7]'(by omega)).toBitVec.zeroExtend 64 <<< 56)
 
-      -- Parse agentId (bytes 8-11, little-endian)
-      let agentIdNat := List.foldl (fun acc i =>
-        acc ||| (UInt8.toNat arr[i + 8]! <<< (8 * i))
-      ) 0 (List.range 4)
-      let agentId := BitVec.ofNat 32 agentIdNat
+      let agentId :=
+        (arr[8]'(by omega)).toBitVec.zeroExtend 32 |||
+        ((arr[9]'(by omega)).toBitVec.zeroExtend 32 <<< 8) |||
+        ((arr[10]'(by omega)).toBitVec.zeroExtend 32 <<< 16) |||
+        ((arr[11]'(by omega)).toBitVec.zeroExtend 32 <<< 24)
 
-      -- Parse timestampMs (bytes 12-19, little-endian)
-      let tsNat := List.foldl (fun acc i =>
-        acc ||| (UInt8.toNat arr[i + 12]! <<< (8 * i))
-      ) 0 (List.range 8)
-      let timestampMs := BitVec.ofNat 64 tsNat
+      let timestampMs :=
+        (arr[12]'(by omega)).toBitVec.zeroExtend 64 |||
+        ((arr[13]'(by omega)).toBitVec.zeroExtend 64 <<< 8) |||
+        ((arr[14]'(by omega)).toBitVec.zeroExtend 64 <<< 16) |||
+        ((arr[15]'(by omega)).toBitVec.zeroExtend 64 <<< 24) |||
+        ((arr[16]'(by omega)).toBitVec.zeroExtend 64 <<< 32) |||
+        ((arr[17]'(by omega)).toBitVec.zeroExtend 64 <<< 40) |||
+        ((arr[18]'(by omega)).toBitVec.zeroExtend 64 <<< 48) |||
+        ((arr[19]'(by omega)).toBitVec.zeroExtend 64 <<< 56)
 
-      -- Parse schemaVersion (bytes 20-23, little-endian)
-      let schemaVersionNat := List.foldl (fun acc i =>
-        acc ||| (UInt8.toNat arr[i + 20]! <<< (8 * i))
-      ) 0 (List.range 4)
-      let schemaVersion := BitVec.ofNat 32 schemaVersionNat
+      let schemaVersion :=
+        (arr[20]'(by omega)).toBitVec.zeroExtend 32 |||
+        ((arr[21]'(by omega)).toBitVec.zeroExtend 32 <<< 8) |||
+        ((arr[22]'(by omega)).toBitVec.zeroExtend 32 <<< 16) |||
+        ((arr[23]'(by omega)).toBitVec.zeroExtend 32 <<< 24)
 
       some {
         mask := mask
@@ -157,6 +152,8 @@ def deserializeMessage (bytes : List UInt8) : Option BitmaskMessage :=
         timestampMs := timestampMs
         schemaVersion := schemaVersion
       }
+    else
+      none
 
 /-- Wire size of a message (always 24 bytes). -/
 def BitmaskMessage.wireSize (_msg : BitmaskMessage) : Nat :=
@@ -204,36 +201,71 @@ theorem deserialize_length_check (bytes : List UInt8) :
 
 /-- Valid messages roundtrip through serialization. -/
 theorem message_roundtrip (msg : BitmaskMessage) (h : msg.isValid) :
-  deserializeMessage ((List.finRange 24).map (serializeMessage msg)) = some msg := by sorry
+  deserializeMessage ((List.finRange 24).map (serializeMessage msg)) = some msg := by
+  unfold serializeMessage deserializeMessage
+  simp
+  congr
+  · bv_decide
+  · bv_decide
+  · bv_decide
+  · bv_decide
 
 /-- Mask field is correctly serialized and deserialized. -/
 theorem mask_roundtrip (msg : BitmaskMessage) (h : msg.isValid) :
   let bytes := (List.finRange 24).map (serializeMessage msg)
   let deserialized := deserializeMessage bytes
-  deserialized.isSome → deserialized.get!.mask = msg.mask := by sorry
+  deserialized.isSome → deserialized.get!.mask = msg.mask := by
+  intro bytes deserialized h_some
+  have h_eq := message_roundtrip msg h
+  dsimp only [bytes, deserialized] at *
+  rw [h_eq]
+  rfl
 
 /-- AgentId field is correctly serialized and deserialized. -/
 theorem agentId_roundtrip (msg : BitmaskMessage) (h : msg.isValid) :
   let bytes := (List.finRange 24).map (serializeMessage msg)
   let deserialized := deserializeMessage bytes
-  deserialized.isSome → deserialized.get!.agentId = msg.agentId := by sorry
+  deserialized.isSome → deserialized.get!.agentId = msg.agentId := by
+  intro bytes deserialized h_some
+  have h_eq := message_roundtrip msg h
+  dsimp only [bytes, deserialized] at *
+  rw [h_eq]
+  rfl
 
 /-- Timestamp field is correctly serialized and deserialized. -/
 theorem timestamp_roundtrip (msg : BitmaskMessage) (h : msg.isValid) :
   let bytes := (List.finRange 24).map (serializeMessage msg)
   let deserialized := deserializeMessage bytes
-  deserialized.isSome → deserialized.get!.timestampMs = msg.timestampMs := by sorry
+  deserialized.isSome → deserialized.get!.timestampMs = msg.timestampMs := by
+  intro bytes deserialized h_some
+  have h_eq := message_roundtrip msg h
+  dsimp only [bytes, deserialized] at *
+  rw [h_eq]
+  rfl
 
 /-- SchemaVersion field is correctly serialized and deserialized. -/
 theorem schemaVersion_roundtrip (msg : BitmaskMessage) (h : msg.isValid) :
   let bytes := (List.finRange 24).map (serializeMessage msg)
   let deserialized := deserializeMessage bytes
-  deserialized.isSome → deserialized.get!.schemaVersion = msg.schemaVersion := by sorry
+  deserialized.isSome → deserialized.get!.schemaVersion = msg.schemaVersion := by
+  intro bytes deserialized h_some
+  have h_eq := message_roundtrip msg h
+  dsimp only [bytes, deserialized] at *
+  rw [h_eq]
+  rfl
 
 /-- Compression ratio is always > 1 (JSON is larger). -/
 theorem compression_ratio_positive (msg : BitmaskMessage) :
   msg.compressionVsJson > 1 := by
-  sorry
+  unfold BitmaskMessage.compressionVsJson
+  have h_json : msg.jsonSize ≥ 60 := by
+    dsimp [BitmaskMessage.jsonSize]
+    omega
+  have h_wire : msg.wireSize = 24 := rfl
+  rw [h_wire]
+  have h1 : (60 : Real) ≤ msg.jsonSize := Nat.cast_le.mpr h_json
+  have h_pos : (0 : Real) < 24 := by norm_num
+  exact (one_lt_div h_pos).mpr (lt_of_lt_of_le (by norm_num) h1)
 
 /-- Message validity is preserved by roundtrip. -/
 theorem roundtrip_preserves_validity (msg : BitmaskMessage) (h : msg.isValid) :
