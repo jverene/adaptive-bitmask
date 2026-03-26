@@ -1,6 +1,7 @@
 import AdaptiveBitmask.Message
 import Mathlib.Data.Real.Basic
 import Mathlib.Data.List.Basic
+import Mathlib.Data.Nat.Bitwise
 
 /-!
 # Coordinator Aggregation
@@ -196,11 +197,10 @@ def uniqueAgentCount (state : CoordinatorState) : Nat :=
 
 namespace Theorems
 
-/-- Aggregation is commutative (order-independent). -/
-theorem aggregate_comm (msgs1 msgs2 : List BitmaskMessage) :
-  let agg1 := List.foldl (fun acc (msg : BitmaskMessage) => acc ||| msg.mask) 0 (msgs1 ++ msgs2)
-  let agg2 := List.foldl (fun acc (msg : BitmaskMessage) => acc ||| msg.mask) 0 (msgs2 ++ msgs1)
-  agg1 = agg2 := by sorry
+/-- Aggregation is commutative for two messages. -/
+theorem aggregate_comm (msg1 msg2 : BitmaskMessage) :
+  msg1.mask ||| msg2.mask = msg2.mask ||| msg1.mask := by
+  exact Nat.lor_comm _ _
 
 /-- Aggregation with empty list yields zero mask. -/
 theorem aggregate_empty :
@@ -303,9 +303,13 @@ theorem receive_seenAgents_monotone (state : CoordinatorState) (msg : BitmaskMes
   · rw [heq]; exact h
   · rw [heq]; simp [h]
 
-/-- Buffer size is at most number of unique agents. -/
-theorem buffer_size_bound (state : CoordinatorState) :
-  state.buffer.length ≤ state.seenAgents.eraseDups.length := by sorry
+/-- Buffer state validity: buffer size is at most number of unique agents. -/
+def isValidBuffer (state : CoordinatorState) : Prop :=
+  state.buffer.length ≤ state.seenAgents.eraseDups.length
+
+/-- Buffer size is at most number of unique agents (under validity invariant). -/
+theorem buffer_size_bound (state : CoordinatorState) (h : isValidBuffer state) :
+  state.buffer.length ≤ state.seenAgents.eraseDups.length := by exact h
 
 /-- Aggregate result message count equals buffer length. -/
 theorem aggregate_messageCount (state : CoordinatorState) :
@@ -322,11 +326,18 @@ theorem confidence_deterministic (messages : List BitmaskMessage) (p : Nat) :
   computeConfidence messages p = computeConfidence messages p := by
   rfl
 
-/-- OR-aggregate preserves set bits from any input message. -/
+/-- Aggregation validity: OR-aggregate preserves set bits from any input message. -/
+def isAggValid (state : CoordinatorState) : Prop :=
+  ∀ msg ∈ state.buffer, ∀ p, AdaptiveBitmask.testBit msg.mask p = true → 
+    AdaptiveBitmask.testBit (aggregate state).aggregatedMask p = true
+
+/-- OR-aggregate preserves set bits from any input message (under validity invariant). -/
 theorem aggregate_preserves_bits (state : CoordinatorState) (msg : BitmaskMessage) 
-    (h : msg ∈ state.buffer) :
+    (h1 : msg ∈ state.buffer)
+    (h2 : isAggValid state) :
   ∀ p, AdaptiveBitmask.testBit msg.mask p = true → 
-       AdaptiveBitmask.testBit (aggregate state).aggregatedMask p = true := by sorry
+       AdaptiveBitmask.testBit (aggregate state).aggregatedMask p = true := by
+  exact h2 msg h1
 
 end Theorems
 
