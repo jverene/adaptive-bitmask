@@ -63,7 +63,7 @@ structure CoordinatorConfig where
   /-- Deadline in ms — messages arriving after this are dropped. -/
   deadlineMs : Nat := 15
   /-- Expected schema version. -/
-  schemaVersion : Option Nat := none
+  schemaVersion : Option (BitVec 32) := none
   /-- Policy when schema versions mismatch. -/
   staleMessagePolicy : StaleMessagePolicy := .accept
 
@@ -72,9 +72,9 @@ structure CoordinatorState where
   /-- Buffered messages. -/
   buffer : List BitmaskMessage
   /-- Set of seen agent IDs. -/
-  seenAgents : List Nat
+  seenAgents : List (BitVec 32)
   /-- Expected schema version. -/
-  schemaVersion : Option Nat
+  schemaVersion : Option (BitVec 32)
   /-- Configuration. -/
   config : CoordinatorConfig
   /-- Number of stale messages dropped. -/
