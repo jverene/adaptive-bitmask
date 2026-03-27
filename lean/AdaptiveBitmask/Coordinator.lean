@@ -200,7 +200,7 @@ namespace Theorems
 /-- Aggregation is commutative for two messages. -/
 theorem aggregate_comm (msg1 msg2 : BitmaskMessage) :
   msg1.mask ||| msg2.mask = msg2.mask ||| msg1.mask := by
-  exact Nat.lor_comm _ _
+  bv_decide
 
 /-- Aggregation with empty list yields zero mask. -/
 theorem aggregate_empty :
