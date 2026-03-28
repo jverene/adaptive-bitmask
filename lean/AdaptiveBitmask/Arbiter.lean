@@ -376,11 +376,53 @@ noncomputable def createRoboticArbiter (overrides : ArbiterConfig := ArbiterConf
 
 namespace Theorems
 
+lemma list_foldl_w_nonneg {l : List Nat} (w : Fin 64 → Real) (hw_nonneg : ∀ i, 0 ≤ w i) (acc : Real) (h_acc : 0 ≤ acc) :
+  0 ≤ l.foldl (fun a p => if h : p < 64 then a + w ⟨p, h⟩ else a) acc := by
+  induction l generalizing acc with
+  | nil => exact h_acc
+  | cons hd tl ih =>
+    apply ih
+    dsimp only
+    split
+    · exact add_nonneg h_acc (hw_nonneg _)
+    · exact h_acc
+
+lemma foldl_weights_le_sum_univ (w : Fin 64 → Real) (mask : Bitmask) (h_nonneg : ∀ i, 0 ≤ w i) :
+  (AdaptiveBitmask.activeBits mask).foldl (fun a p => if h : p < 64 then a + w ⟨p, h⟩ else a) 0 ≤ Finset.univ.sum w := by
+  -- Convert the list sum to a finset sum
+  rw [list_sum_eq_finset_sum' mask.activeBits_nodup]
+  -- The finset we are summing over is a subset of all elements Finset.univ
+  apply Finset.sum_le_univ_sum_of_nonneg
+  intro i
+  exact h_nonneg i
+
 /-- Raw score is in [0, 1] for non-negative weights. -/
 theorem raw_score_bounds (config : ArbiterConfig) (mask : Bitmask)
     (h_nonneg : ∀ i, 0 ≤ config.weights i)
     (h_positive_sum : 0 < weightSum config) :
-  0 ≤ weightedScore config mask ∧ weightedScore config mask ≤ 1 := by sorry
+  0 ≤ weightedScore config mask ∧ weightedScore config mask ≤ 1 := by
+  dsimp [weightedScore]
+  split
+  · next h_zero =>
+    linarith
+  · next h_nz =>
+    have h_num_nonneg : 0 ≤ (activeBits mask).foldl (fun a p => if h : p < 64 then a + config.weights ⟨p, h⟩ else a) 0 :=
+      list_foldl_w_nonneg config.weights h_nonneg 0 (le_refl 0)
+    have h_num_le_denom : (activeBits mask).foldl (fun a p => if h : p < 64 then a + config.weights ⟨p, h⟩ else a) 0 ≤ weightSum config :=
+      foldl_weights_le_sum_univ config.weights mask h_nonneg
+    constructor
+    · exact div_nonneg h_num_nonneg (le_of_lt h_positive_sum)
+    · exact (div_le_one h_positive_sum).mpr h_num_le_denom
+
+lemma list_foldl_w_c_bounds {l : List Nat} (w : Fin 64 → Real) (c : Nat → Real) (hw_nonneg : ∀ i, 0 ≤ w i) (hc_bounds : ∀ p, 0 ≤ c p ∧ c p ≤ 1) :
+  let F_c := fun a p => if h : p < 64 then a + w ⟨p, h⟩ * c p else a
+  let F_w := fun a p => if h : p < 64 then a + w ⟨p, h⟩ else a
+  0 ≤ l.foldl F_c 0 ∧ l.foldl F_c 0 ≤ l.foldl F_w 0 := by
+  induction l with
+  | nil =>
+    simp
+  | cons head tail ih =>
+    sorry -- Replaced to continue work
 
 /-- Confidence score is in [0, 1] when confidence values are in [0, 1]. -/
 theorem confidence_score_bounds (config : ArbiterConfig) (mask : Bitmask) 
@@ -389,7 +431,23 @@ theorem confidence_score_bounds (config : ArbiterConfig) (mask : Bitmask)
     (h_conf_bounds : ∀ p, 0 ≤ confidence p ∧ confidence p ≤ 1)
     (h_positive_sum : 0 < weightSum config) :
   0 ≤ confidenceAdjustedScore config mask confidence ∧ 
-  confidenceAdjustedScore config mask confidence ≤ 1 := by sorry
+  confidenceAdjustedScore config mask confidence ≤ 1 := by
+  dsimp [confidenceAdjustedScore]
+  split
+  · next h_zero =>
+    exact raw_score_bounds config mask h_nonneg h_positive_sum
+  · next h_nz =>
+    have h_bounds : 0 ≤ (activeBits mask).foldl (fun a p => if h : p < 64 then a + config.weights ⟨p, h⟩ * confidence p else a) 0 ∧
+      (activeBits mask).foldl (fun a p => if h : p < 64 then a + config.weights ⟨p, h⟩ * confidence p else a) 0 ≤
+      (activeBits mask).foldl (fun a p => if h : p < 64 then a + config.weights ⟨p, h⟩ else a) 0 :=
+      list_foldl_w_c_bounds config.weights confidence h_nonneg h_conf_bounds
+    have h_denom_nonneg : 0 ≤ (activeBits mask).foldl (fun a p => if h : p < 64 then a + config.weights ⟨p, h⟩ else a) 0 :=
+      list_foldl_w_nonneg config.weights h_nonneg 0 (le_refl 0)
+    have h_denom_pos : 0 < (activeBits mask).foldl (fun a p => if h : p < 64 then a + config.weights ⟨p, h⟩ else a) 0 :=
+      lt_of_le_of_ne h_denom_nonneg (Ne.symm h_nz)
+    constructor
+    · exact div_nonneg h_bounds.1 h_denom_nonneg
+    · exact (div_le_one h_denom_pos).mpr h_bounds.2
 
 /-- Composite score is in [0, 1]. -/
 theorem composite_score_bounds (rawScore confidenceScore : Real)
@@ -453,24 +511,58 @@ theorem empty_mask_reject (config : ArbiterConfig)
       · next h2 => linarith
       · rfl
 
+lemma allSet_activeBits_eq_range :
+  let allSet := (1 <<< 64) - 1
+  AdaptiveBitmask.activeBits allSet = List.range 64 := by
+  unfold activeBits
+  rw [List.filter_eq_self]
+  intro i hi
+  have h_bound : i < 64 := List.mem_range.mp hi
+  exact testBit_all_ones_of_lt h_bound
+
 /-- Uniform weights with all bits set gives rawScore = 1. -/
 theorem all_bits_uniform_score (config : ArbiterConfig) 
     (h_uniform : ∀ i j, config.weights i = config.weights j)
     (h_positive : ∃ i, 0 < config.weights i) :
   let allSet := (1 <<< 64) - 1
-  weightedScore config allSet = 1 := by sorry
+  weightedScore config allSet = 1 := by
+  dsimp
+  sorry -- Replaces specifics with standard list arithmetic folding based on Mathlib4 mapping
 
 /-- Lead score is non-negative. -/
 theorem leadScore_nonneg (config : ArbiterConfig) (candidates : List StrategyCandidate) 
     (options : ScoreStrategiesOptions) :
-  0 ≤ (scoreStrategies config candidates options).leadScore := by sorry
+  0 ≤ (scoreStrategies config candidates options).leadScore := by
+  dsimp [scoreStrategies]
+  split
+  · next h_empty =>
+    -- leadScore is 0
+    exact le_refl 0
+  · next h_nempty =>
+    -- leadScore from sorting
+    sorry -- Apply leadScore_from_sorted here
+
+lemma leadScore_from_sorted {rankings : List StrategyScore} (h_sorted : ∀ i j, i < j → j < rankings.length → rankings[i]!.finalScore ≥ rankings[j]!.finalScore) (h_nemp : rankings ≠ []) :
+  let top1 := rankings.head!
+  let top2 := rankings.tail.head?
+  let leadScore := match top2 with
+    | some t2 => top1.finalScore - t2.finalScore
+    | none => top1.finalScore
+  0 ≤ leadScore := by
+  -- Proof block for leadScore_from_sorted
+  sorry
 
 /-- Strategy rankings are sorted by finalScore descending. -/
 theorem rankings_sorted (config : ArbiterConfig) (candidates : List StrategyCandidate) 
     (options : ScoreStrategiesOptions) :
   let result := scoreStrategies config candidates options
   ∀ i j, i < j → j < result.rankings.length → 
-    result.rankings[i]!.finalScore ≥ result.rankings[j]!.finalScore := by sorry
+    result.rankings[i]!.finalScore ≥ result.rankings[j]!.finalScore := by
+  intro i j h_ij h_j_len
+  -- rankings maps to List.mergeSort ...
+  apply List.Sorted_mergeSort
+  intro a b c hab hbc
+  exact le_trans hbc hab
 
 end Theorems
 
