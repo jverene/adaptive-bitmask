@@ -2,6 +2,8 @@ import AdaptiveBitmask.Coordinator
 import Mathlib.Data.Real.Basic
 import Mathlib.Data.Fin.VecNotation
 import Mathlib.Algebra.BigOperators.Group.Finset.Defs
+import Mathlib.Tactic.Linarith
+import Mathlib.Tactic.Positivity
 
 /-!
 # Arbiter Scoring and Decision Synthesis
@@ -391,10 +393,17 @@ theorem confidence_score_bounds (config : ArbiterConfig) (mask : Bitmask)
 
 /-- Composite score is in [0, 1]. -/
 theorem composite_score_bounds (rawScore confidenceScore : Real)
-    (h_raw : 0 ≤ rawScore ∧ rawScore ≤ 1) 
+    (h_raw : 0 ≤ rawScore ∧ rawScore ≤ 1)
     (h_conf : 0 ≤ confidenceScore ∧ confidenceScore ≤ 1) :
   0 ≤ compositeScore rawScore confidenceScore ∧ 
-  compositeScore rawScore confidenceScore ≤ 1 := by sorry
+  compositeScore rawScore confidenceScore ≤ 1 := by
+  dsimp [compositeScore]
+  constructor
+  · apply le_min
+    · linarith
+    · linarith
+  · have h_min := min_le_left (1.0 : Real) (rawScore * 0.6 + confidenceScore * 0.4)
+    linarith
 
 /-- Decision logic is exhaustive (always returns one of three values). -/
 theorem decision_exhaustive (finalScore : Real) (config : ArbiterConfig) :
@@ -417,8 +426,11 @@ theorem emergency_override_reject (config : ArbiterConfig) (mask : Bitmask)
   simp [h_emergency, h_hasEmergency]
 
 /-- Empty mask results in REJECT (zero score). -/
-theorem empty_mask_reject (config : ArbiterConfig) :
-  (score config AdaptiveBitmask.empty none).decision = Decision.REJECT := by sorry
+theorem empty_mask_reject (config : ArbiterConfig) 
+    (h_synth_pos : config.synthesizeThreshold > 0)
+    (h_exec_pos : config.executeThreshold > 0) :
+  (score config AdaptiveBitmask.empty none).decision = Decision.REJECT := by
+  sorry
 
 /-- Uniform weights with all bits set gives rawScore = 1. -/
 theorem all_bits_uniform_score (config : ArbiterConfig) 
