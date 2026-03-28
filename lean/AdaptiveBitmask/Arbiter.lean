@@ -400,7 +400,13 @@ theorem composite_score_bounds (rawScore confidenceScore : Real)
 theorem decision_exhaustive (finalScore : Real) (config : ArbiterConfig) :
   makeDecision finalScore config = Decision.EXECUTE ∨
   makeDecision finalScore config = Decision.SYNTHESIZE ∨
-  makeDecision finalScore config = Decision.REJECT := by sorry
+  makeDecision finalScore config = Decision.REJECT := by
+  unfold makeDecision
+  split
+  · exact Or.inl rfl
+  · split
+    · exact Or.inr (Or.inl rfl)
+    · exact Or.inr (Or.inr rfl)
 
 /-- Emergency override forces REJECT. -/
 theorem emergency_override_reject (config : ArbiterConfig) (mask : Bitmask)
