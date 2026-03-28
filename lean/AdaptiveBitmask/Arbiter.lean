@@ -412,7 +412,9 @@ theorem decision_exhaustive (finalScore : Real) (config : ArbiterConfig) :
 theorem emergency_override_reject (config : ArbiterConfig) (mask : Bitmask)
     (h_emergency : config.emergencyOverride = true)
     (h_hasEmergency : AdaptiveBitmask.hasEmergency mask = true) :
-  (score config mask none).decision = Decision.REJECT := by sorry
+  (score config mask none).decision = Decision.REJECT := by
+  unfold score
+  simp [h_emergency, h_hasEmergency]
 
 /-- Empty mask results in REJECT (zero score). -/
 theorem empty_mask_reject (config : ArbiterConfig) :
