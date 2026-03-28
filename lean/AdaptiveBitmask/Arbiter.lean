@@ -430,7 +430,28 @@ theorem empty_mask_reject (config : ArbiterConfig)
     (h_synth_pos : config.synthesizeThreshold > 0)
     (h_exec_pos : config.executeThreshold > 0) :
   (score config AdaptiveBitmask.empty none).decision = Decision.REJECT := by
-  sorry
+  dsimp [score]
+  split
+  · rfl
+  · dsimp [makeDecision]
+    have hw : weightedScore config AdaptiveBitmask.empty = 0 := by
+      have h_act : AdaptiveBitmask.activeBits AdaptiveBitmask.empty = [] := rfl
+      dsimp [weightedScore]
+      rw [h_act]
+      dsimp [List.foldl]
+      split
+      · rfl
+      · exact zero_div (weightSum config)
+    have hf : compositeScore (weightedScore config AdaptiveBitmask.empty) (weightedScore config AdaptiveBitmask.empty) = 0 := by
+      rw [hw]
+      dsimp [compositeScore]
+      norm_num
+    rw [hf]
+    split
+    · next h1 => linarith
+    · split
+      · next h2 => linarith
+      · rfl
 
 /-- Uniform weights with all bits set gives rawScore = 1. -/
 theorem all_bits_uniform_score (config : ArbiterConfig) 
