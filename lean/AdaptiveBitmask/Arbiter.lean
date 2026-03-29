@@ -621,15 +621,48 @@ theorem leadScore_nonneg (config : ArbiterConfig) (candidates : List StrategyCan
     -- leadScore from sorting
     sorry -- Apply leadScore_from_sorted here
 
-lemma leadScore_from_sorted {rankings : List StrategyScore} (h_sorted : ∀ i j, i < j → j < rankings.length → rankings[i]!.finalScore ≥ rankings[j]!.finalScore) (h_nemp : rankings ≠ []) :
+lemma leadScore_from_sorted {rankings : List StrategyScore} 
+    (h_sorted : ∀ i j, i < j → j < rankings.length → rankings[i]!.finalScore ≥ rankings[j]!.finalScore) 
+    (h_nemp : rankings ≠ [])
+    (h_pos : ∀ (i : Nat) (h : i < rankings.length), 0 ≤ rankings[i].finalScore) :
   let top1 := rankings.head!
   let top2 := rankings.tail.head?
   let leadScore := match top2 with
     | some t2 => top1.finalScore - t2.finalScore
     | none => top1.finalScore
   0 ≤ leadScore := by
-  -- Proof block for leadScore_from_sorted
-  sorry
+  dsimp
+  cases h_tail : rankings.tail.head? with
+  | none =>
+    have h_len : rankings.length = 1 := by
+      cases rankings with
+      | nil => contradiction
+      | cons hd tl =>
+        simp [List.tail, List.head?] at h_tail
+        cases tl with
+        | nil => rfl
+        | cons _ _ => contradiction
+    have h0 : 0 < rankings.length := by rw [h_len]; exact Nat.zero_lt_succ 0
+    have h_pos_hd := h_pos 0 h0
+    cases h_rankings : rankings with
+    | nil => contradiction
+    | cons hd tl =>
+      simp [List.head!, h_rankings] at h_pos_hd ⊢
+      exact h_pos_hd
+  | some t2 =>
+    cases h_rankings : rankings with
+    | nil => contradiction
+    | cons hd tl =>
+      cases tl with
+      | nil =>
+        simp [List.tail, List.head?, h_rankings] at h_tail
+      | cons hd2 tl2 =>
+        simp [List.tail, List.head?, h_rankings] at h_tail
+        have t2_eq : t2 = hd2 := h_tail.symm
+        subst t2_eq
+        have h := h_sorted 0 1 (by decide) (by simp [h_rankings])
+        simp [h_rankings] at *
+        linarith
 
 /-- Strategy rankings are sorted by finalScore descending. -/
 theorem rankings_sorted (config : ArbiterConfig) (candidates : List StrategyCandidate) 
