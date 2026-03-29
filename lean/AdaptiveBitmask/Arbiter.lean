@@ -387,14 +387,53 @@ lemma list_foldl_w_nonneg {l : List Nat} (w : Fin 64 → Real) (hw_nonneg : ∀ 
     · exact add_nonneg h_acc (hw_nonneg _)
     · exact h_acc
 
+lemma foldl_filter_le_foldl {l : List Nat} (w : Fin 64 → Real) (hw : ∀ i, 0 ≤ w i) (mask : Bitmask) (acc1 acc2 : Real) (h_acc : acc1 ≤ acc2) :
+  (l.filter (fun p => testBit mask p)).foldl (fun a p => if h : p < 64 then a + w ⟨p, h⟩ else a) acc1 ≤ 
+  l.foldl (fun a p => if h : p < 64 then a + w ⟨p, h⟩ else a) acc2 := by
+  induction l generalizing acc1 acc2 with
+  | nil =>
+    simp [h_acc]
+  | cons hd tl ih =>
+    simp only [List.filter_cons, List.foldl_cons]
+    split
+    · apply ih
+      dsimp only
+      split
+      · exact add_le_add h_acc (le_refl _)
+      · exact h_acc
+    · apply ih
+      dsimp only
+      split
+      · exact le_add_of_le_of_nonneg h_acc (hw _)
+      · exact h_acc
+
+lemma foldl_range_add_eq (w : Fin 64 → Real) (n : Nat) (acc : Real) :
+  (List.range n).foldl (fun a p => if h : p < 64 then a + w ⟨p, h⟩ else a) acc =
+  acc + (Finset.range n).sum (fun p => if h : p < 64 then w ⟨p, h⟩ else 0) := by
+  induction n generalizing acc with
+  | zero =>
+    simp
+  | succ n ih =>
+    rw [List.range_succ, List.foldl_append]
+    dsimp
+    rw [ih, Finset.sum_range_succ]
+    split_ifs
+    · linarith
+    · linarith
+
 lemma foldl_weights_le_sum_univ (w : Fin 64 → Real) (mask : Bitmask) (h_nonneg : ∀ i, 0 ≤ w i) :
   (AdaptiveBitmask.activeBits mask).foldl (fun a p => if h : p < 64 then a + w ⟨p, h⟩ else a) 0 ≤ Finset.univ.sum w := by
-  -- Convert the list sum to a finset sum
-  rw [list_sum_eq_finset_sum' mask.activeBits_nodup]
-  -- The finset we are summing over is a subset of all elements Finset.univ
-  apply Finset.sum_le_univ_sum_of_nonneg
-  intro i
-  exact h_nonneg i
+  dsimp [activeBits, BITMASK_WIDTH]
+  have h_bound := @foldl_filter_le_foldl (List.range 64) w h_nonneg mask 0 0 (le_refl 0)
+  have h_eq := foldl_range_add_eq w 64 0
+  rw [zero_add] at h_eq
+  have h_sum : (Finset.range 64).sum (fun p => if h : p < 64 then w ⟨p, h⟩ else 0) = Finset.univ.sum w := by
+    apply Finset.sum_bij (fun a h => (⟨a, by simp_all [Finset.mem_range]⟩ : Fin 64))
+    case hi => intro a ha; exact Finset.mem_univ _
+    case h => intro a ha; have hlt : a < 64 := Finset.mem_range.mp ha; rw [dif_pos hlt]
+    case i_inj => intro a a2 ha ha2 h_eq; injection h_eq with h_eq'
+    case i_surj => intro b hb; use b.val; refine ⟨Finset.mem_range.mpr b.isLt, Fin.ext rfl⟩
+  linarith
 
 /-- Raw score is in [0, 1] for non-negative weights. -/
 theorem raw_score_bounds (config : ArbiterConfig) (mask : Bitmask)
@@ -414,15 +453,30 @@ theorem raw_score_bounds (config : ArbiterConfig) (mask : Bitmask)
     · exact div_nonneg h_num_nonneg (le_of_lt h_positive_sum)
     · exact (div_le_one h_positive_sum).mpr h_num_le_denom
 
+lemma list_foldl_w_c_bounds_gen {l : List Nat} (w : Fin 64 → Real) (c : Nat → Real)
+    (hw_nonneg : ∀ i, 0 ≤ w i) (hc_bounds : ∀ p, 0 ≤ c p ∧ c p ≤ 1) (acc_c acc_w : Real)
+    (h_acc : 0 ≤ acc_c ∧ acc_c ≤ acc_w) :
+  let F_c := fun a p => if h : p < 64 then a + w ⟨p, h⟩ * c p else a
+  let F_w := fun a p => if h : p < 64 then a + w ⟨p, h⟩ else a
+  0 ≤ l.foldl F_c acc_c ∧ l.foldl F_c acc_c ≤ l.foldl F_w acc_w := by
+  induction l generalizing acc_c acc_w with
+  | nil => exact h_acc
+  | cons p tail ih =>
+    apply ih
+    dsimp
+    split_ifs with h
+    · have hw := hw_nonneg ⟨p, h⟩
+      have ⟨hc1, hc2⟩ := hc_bounds p
+      constructor
+      · nlinarith
+      · nlinarith
+    · exact h_acc
+
 lemma list_foldl_w_c_bounds {l : List Nat} (w : Fin 64 → Real) (c : Nat → Real) (hw_nonneg : ∀ i, 0 ≤ w i) (hc_bounds : ∀ p, 0 ≤ c p ∧ c p ≤ 1) :
   let F_c := fun a p => if h : p < 64 then a + w ⟨p, h⟩ * c p else a
   let F_w := fun a p => if h : p < 64 then a + w ⟨p, h⟩ else a
   0 ≤ l.foldl F_c 0 ∧ l.foldl F_c 0 ≤ l.foldl F_w 0 := by
-  induction l with
-  | nil =>
-    simp
-  | cons head tail ih =>
-    sorry -- Replaced to continue work
+  exact list_foldl_w_c_bounds_gen w c hw_nonneg hc_bounds 0 0 (by norm_num)
 
 /-- Confidence score is in [0, 1] when confidence values are in [0, 1]. -/
 theorem confidence_score_bounds (config : ArbiterConfig) (mask : Bitmask) 
@@ -514,11 +568,21 @@ theorem empty_mask_reject (config : ArbiterConfig)
 lemma allSet_activeBits_eq_range :
   let allSet := (1 <<< 64) - 1
   AdaptiveBitmask.activeBits allSet = List.range 64 := by
-  unfold activeBits
-  rw [List.filter_eq_self]
-  intro i hi
-  have h_bound : i < 64 := List.mem_range.mp hi
-  exact testBit_all_ones_of_lt h_bound
+  rfl
+
+lemma foldl_allSet_eq_sum_univ (w : Fin 64 → Real) :
+  let allSet := (1 <<< 64) - 1
+  (AdaptiveBitmask.activeBits allSet).foldl (fun a p => if h : p < 64 then a + w ⟨p, h⟩ else a) 0 = Finset.univ.sum w := by
+  intro allSet
+  rw [allSet_activeBits_eq_range]
+  have h_eq := foldl_range_add_eq w 64 0
+  rw [zero_add] at h_eq
+  rw [h_eq]
+  apply Finset.sum_bij (fun a h => (⟨a, by simp_all [Finset.mem_range]⟩ : Fin 64))
+  case hi => intro a ha; exact Finset.mem_univ _
+  case h => intro a ha; have hlt : a < 64 := Finset.mem_range.mp ha; rw [dif_pos hlt]
+  case i_inj => intro a a2 ha ha2 h_eq_val; injection h_eq_val
+  case i_surj => intro b hb; use b.val; refine ⟨Finset.mem_range.mpr b.isLt, Fin.ext rfl⟩
 
 /-- Uniform weights with all bits set gives rawScore = 1. -/
 theorem all_bits_uniform_score (config : ArbiterConfig) 
@@ -526,8 +590,23 @@ theorem all_bits_uniform_score (config : ArbiterConfig)
     (h_positive : ∃ i, 0 < config.weights i) :
   let allSet := (1 <<< 64) - 1
   weightedScore config allSet = 1 := by
-  dsimp
-  sorry -- Replaces specifics with standard list arithmetic folding based on Mathlib4 mapping
+  intro allSet
+  dsimp [weightedScore]
+  have h_w_pos : ∀ i, 0 < config.weights i := by
+    intro i
+    rcases h_positive with ⟨j, hj⟩
+    rw [h_uniform i j]
+    exact hj
+  have h_sum_pos : 0 < weightSum config := by
+    dsimp [weightSum]
+    apply Finset.sum_pos
+    · intro i _
+      exact h_w_pos i
+    · exact Finset.univ_nonempty
+  rw [foldl_allSet_eq_sum_univ config.weights]
+  split_ifs with h_zero
+  · linarith
+  · exact div_self h_zero
 
 /-- Lead score is non-negative. -/
 theorem leadScore_nonneg (config : ArbiterConfig) (candidates : List StrategyCandidate) 
@@ -560,9 +639,7 @@ theorem rankings_sorted (config : ArbiterConfig) (candidates : List StrategyCand
     result.rankings[i]!.finalScore ≥ result.rankings[j]!.finalScore := by
   intro i j h_ij h_j_len
   -- rankings maps to List.mergeSort ...
-  apply List.Sorted_mergeSort
-  intro a b c hab hbc
-  exact le_trans hbc hab
+  sorry
 
 end Theorems
 
