@@ -142,7 +142,7 @@ noncomputable def score (config : ArbiterConfig) (aggregatedMask : Bitmask)
     (confidence : Option (Nat → Real)) : ArbiterResult :=
   let active := AdaptiveBitmask.activeBits aggregatedMask
   let emergency := AdaptiveBitmask.hasEmergency aggregatedMask
-  
+
   -- Emergency override: force REJECT
   if emergency && config.emergencyOverride then
     {
@@ -161,7 +161,7 @@ noncomputable def score (config : ArbiterConfig) (aggregatedMask : Bitmask)
       | none => rawScore
     let finalScore := compositeScore rawScore confidenceScore
     let decision := makeDecision finalScore config
-    
+
     {
       decision := decision
       rawScore := rawScore
@@ -388,7 +388,7 @@ lemma list_foldl_w_nonneg {l : List Nat} (w : Fin 64 → Real) (hw_nonneg : ∀ 
     · exact h_acc
 
 lemma foldl_filter_le_foldl {l : List Nat} (w : Fin 64 → Real) (hw : ∀ i, 0 ≤ w i) (mask : Bitmask) (acc1 acc2 : Real) (h_acc : acc1 ≤ acc2) :
-  (l.filter (fun p => testBit mask p)).foldl (fun a p => if h : p < 64 then a + w ⟨p, h⟩ else a) acc1 ≤ 
+  (l.filter (fun p => testBit mask p)).foldl (fun a p => if h : p < 64 then a + w ⟨p, h⟩ else a) acc1 ≤
   l.foldl (fun a p => if h : p < 64 then a + w ⟨p, h⟩ else a) acc2 := by
   induction l generalizing acc1 acc2 with
   | nil =>
@@ -479,12 +479,12 @@ lemma list_foldl_w_c_bounds {l : List Nat} (w : Fin 64 → Real) (c : Nat → Re
   exact list_foldl_w_c_bounds_gen w c hw_nonneg hc_bounds 0 0 (by norm_num)
 
 /-- Confidence score is in [0, 1] when confidence values are in [0, 1]. -/
-theorem confidence_score_bounds (config : ArbiterConfig) (mask : Bitmask) 
+theorem confidence_score_bounds (config : ArbiterConfig) (mask : Bitmask)
     (confidence : Nat → Real)
     (h_nonneg : ∀ i, 0 ≤ config.weights i)
     (h_conf_bounds : ∀ p, 0 ≤ confidence p ∧ confidence p ≤ 1)
     (h_positive_sum : 0 < weightSum config) :
-  0 ≤ confidenceAdjustedScore config mask confidence ∧ 
+  0 ≤ confidenceAdjustedScore config mask confidence ∧
   confidenceAdjustedScore config mask confidence ≤ 1 := by
   dsimp [confidenceAdjustedScore]
   split
@@ -507,7 +507,7 @@ theorem confidence_score_bounds (config : ArbiterConfig) (mask : Bitmask)
 theorem composite_score_bounds (rawScore confidenceScore : Real)
     (h_raw : 0 ≤ rawScore ∧ rawScore ≤ 1)
     (h_conf : 0 ≤ confidenceScore ∧ confidenceScore ≤ 1) :
-  0 ≤ compositeScore rawScore confidenceScore ∧ 
+  0 ≤ compositeScore rawScore confidenceScore ∧
   compositeScore rawScore confidenceScore ≤ 1 := by
   dsimp [compositeScore]
   constructor
@@ -538,7 +538,7 @@ theorem emergency_override_reject (config : ArbiterConfig) (mask : Bitmask)
   simp [h_emergency, h_hasEmergency]
 
 /-- Empty mask results in REJECT (zero score). -/
-theorem empty_mask_reject (config : ArbiterConfig) 
+theorem empty_mask_reject (config : ArbiterConfig)
     (h_synth_pos : config.synthesizeThreshold > 0)
     (h_exec_pos : config.executeThreshold > 0) :
   (score config AdaptiveBitmask.empty none).decision = Decision.REJECT := by
@@ -585,7 +585,7 @@ lemma foldl_allSet_eq_sum_univ (w : Fin 64 → Real) :
   case i_surj => intro b hb; use b.val; refine ⟨Finset.mem_range.mpr b.isLt, Fin.ext rfl⟩
 
 /-- Uniform weights with all bits set gives rawScore = 1. -/
-theorem all_bits_uniform_score (config : ArbiterConfig) 
+theorem all_bits_uniform_score (config : ArbiterConfig)
     (h_uniform : ∀ i j, config.weights i = config.weights j)
     (h_positive : ∃ i, 0 < config.weights i) :
   let allSet := (1 <<< 64) - 1
@@ -608,21 +608,10 @@ theorem all_bits_uniform_score (config : ArbiterConfig)
   · linarith
   · exact div_self h_zero
 
-/-- Lead score is non-negative. -/
-theorem leadScore_nonneg (config : ArbiterConfig) (candidates : List StrategyCandidate) 
-    (options : ScoreStrategiesOptions) :
-  0 ≤ (scoreStrategies config candidates options).leadScore := by
-  dsimp [scoreStrategies]
-  split
-  · next h_empty =>
-    -- leadScore is 0
-    exact le_refl 0
-  · next h_nempty =>
-    -- leadScore from sorting
-    sorry -- Apply leadScore_from_sorted here
 
-lemma leadScore_from_sorted {rankings : List StrategyScore} 
-    (h_sorted : ∀ i j, i < j → j < rankings.length → rankings[i]!.finalScore ≥ rankings[j]!.finalScore) 
+
+lemma leadScore_from_sorted {rankings : List StrategyScore}
+    (h_sorted : ∀ i j, i < j → j < rankings.length → rankings[i]!.finalScore ≥ rankings[j]!.finalScore)
     (h_nemp : rankings ≠ [])
     (h_pos : ∀ (i : Nat) (h : i < rankings.length), 0 ≤ rankings[i].finalScore) :
   let top1 := rankings.head!
@@ -664,11 +653,27 @@ lemma leadScore_from_sorted {rankings : List StrategyScore}
         simp [h_rankings] at *
         linarith
 
+/-- Lead score is non-negative. -/
+theorem leadScore_nonneg (config : ArbiterConfig) (candidates : List StrategyCandidate)
+    (options : ScoreStrategiesOptions) :
+  0 ≤ (scoreStrategies config candidates options).leadScore := by
+  dsimp [scoreStrategies]
+  split
+  · next h_empty =>
+    -- leadScore is 0
+    exact le_refl 0
+  · next h_nempty =>
+    -- leadScore from sorting
+    -- TODO
+    -- apply leadScore_from_sorted
+    sorry
+
+
 /-- Strategy rankings are sorted by finalScore descending. -/
-theorem rankings_sorted (config : ArbiterConfig) (candidates : List StrategyCandidate) 
+theorem rankings_sorted (config : ArbiterConfig) (candidates : List StrategyCandidate)
     (options : ScoreStrategiesOptions) :
   let result := scoreStrategies config candidates options
-  ∀ i j, i < j → j < result.rankings.length → 
+  ∀ i j, i < j → j < result.rankings.length →
     result.rankings[i]!.finalScore ≥ result.rankings[j]!.finalScore := by
   intro i j h_ij h_j_len
   -- rankings maps to List.mergeSort ...
