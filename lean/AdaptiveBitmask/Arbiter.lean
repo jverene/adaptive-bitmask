@@ -510,17 +510,16 @@ theorem confidence_score_bounds (config : ArbiterConfig) (mask : Bitmask)
 
 /-- Composite score is in [0, 1]. -/
 theorem composite_score_bounds (rawScore confidenceScore : Real)
-    (h_raw : 0 ≤ rawScore ∧ rawScore ≤ 1)
-    (h_conf : 0 ≤ confidenceScore ∧ confidenceScore ≤ 1) :
+    (_h_raw : 0 ≤ rawScore ∧ rawScore ≤ 1)
+    (_h_conf : 0 ≤ confidenceScore ∧ confidenceScore ≤ 1) :
   0 ≤ compositeScore rawScore confidenceScore ∧
   compositeScore rawScore confidenceScore ≤ 1 := by
   dsimp [compositeScore]
   constructor
-  · apply le_min
+  · exact le_max_left _ _
+  · apply max_le
     · linarith
-    · linarith
-  · have h_min := min_le_left (1.0 : Real) (rawScore * 0.6 + confidenceScore * 0.4)
-    linarith
+    · exact min_le_left _ _
 
 /-- Decision logic is exhaustive (always returns one of three values). -/
 theorem decision_exhaustive (finalScore : Real) (config : ArbiterConfig) :
