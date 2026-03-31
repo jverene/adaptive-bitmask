@@ -64,6 +64,18 @@ Key observability hooks:
 - WebSocket and HTTP transport layers
 - Security-oriented hooks for validation, rate limiting, and authentication
 
+## Should this library be rewritten in Rust?
+
+Short answer: **not by default**.
+
+For the main use case (multi-agent orchestration around TypeScript/Node.js AI stacks), the current implementation is a good fit because it is:
+
+- Native to the ecosystem where most orchestration code already runs
+- Easy to integrate with existing LLM tooling and web transports
+- Already fast enough for protocol overhead (`us`-scale encode/serialize, sub-10ms coordination in benchmarks)
+
+Rust could still make sense for specialized scenarios (embedded targets, ultra-low-level networking, or when you need a native shared library). A practical path would be to keep the TypeScript SDK as the primary interface and optionally add a Rust core or companion implementation only if real-world profiling shows the current stack is the bottleneck.
+
 ## Formal Verification (Lean 4)
 
 The core mathematical foundations of the `adaptive-bitmask` protocol are mechanically proven using the Lean 4 theorem prover. This ensures absolute correctness for mission-critical properties.
