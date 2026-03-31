@@ -115,7 +115,12 @@ Composite score: ŝ_final = 0.6 * ŝ_raw + 0.4 * c
 Clamped to [0, 1].
 -/
 noncomputable def compositeScore (rawScore confidenceScore : Real) : Real :=
-  min 1.0 (rawScore * 0.6 + confidenceScore * 0.4)
+  max 0 (min 1 (rawScore * 0.6 + confidenceScore * 0.4))
+
+theorem compositeScore_nonneg (rawScore confidenceScore : Real) :
+  0 ≤ compositeScore rawScore confidenceScore := by
+  dsimp [compositeScore]
+  exact le_max_left _ _
 
 /--
 Make decision based on final score and thresholds.
