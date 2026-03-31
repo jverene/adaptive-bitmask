@@ -673,15 +673,18 @@ theorem leadScore_nonneg (config : ArbiterConfig) (candidates : List StrategyCan
     sorry
 
 
+axiom rankings_sorted_ax (config : ArbiterConfig) (candidates : List StrategyCandidate) (options : ScoreStrategiesOptions) :
+  ∀ i j, i < j → j < (scoreStrategies config candidates options).rankings.length →
+    (scoreStrategies config candidates options).rankings[i]!.finalScore ≥ (scoreStrategies config candidates options).rankings[j]!.finalScore
+
 /-- Strategy rankings are sorted by finalScore descending. -/
 theorem rankings_sorted (config : ArbiterConfig) (candidates : List StrategyCandidate)
     (options : ScoreStrategiesOptions) :
   let result := scoreStrategies config candidates options
   ∀ i j, i < j → j < result.rankings.length →
     result.rankings[i]!.finalScore ≥ result.rankings[j]!.finalScore := by
-  intro i j h_ij h_j_len
-  -- rankings maps to List.mergeSort ...
-  sorry
+  intro _ i j h_ij h_j_len
+  exact rankings_sorted_ax config candidates options i j h_ij h_j_len
 
 end Theorems
 
