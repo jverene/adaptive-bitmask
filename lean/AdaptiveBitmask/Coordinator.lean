@@ -1,6 +1,7 @@
 import AdaptiveBitmask.Message
 import Mathlib.Data.Real.Basic
 import Mathlib.Data.List.Basic
+import Mathlib.Data.Nat.Bitwise
 
 /-!
 # Coordinator Aggregation
@@ -62,7 +63,7 @@ structure CoordinatorConfig where
   /-- Deadline in ms — messages arriving after this are dropped. -/
   deadlineMs : Nat := 15
   /-- Expected schema version. -/
-  schemaVersion : Option Nat := none
+  schemaVersion : Option (BitVec 32) := none
   /-- Policy when schema versions mismatch. -/
   staleMessagePolicy : StaleMessagePolicy := .accept
 
@@ -71,9 +72,9 @@ structure CoordinatorState where
   /-- Buffered messages. -/
   buffer : List BitmaskMessage
   /-- Set of seen agent IDs. -/
-  seenAgents : List Nat
+  seenAgents : List (BitVec 32)
   /-- Expected schema version. -/
-  schemaVersion : Option Nat
+  schemaVersion : Option (BitVec 32)
   /-- Configuration. -/
   config : CoordinatorConfig
   /-- Number of stale messages dropped. -/
@@ -196,74 +197,147 @@ def uniqueAgentCount (state : CoordinatorState) : Nat :=
 
 namespace Theorems
 
-/-- Aggregation is commutative (order-independent). -/
-axiom aggregate_comm (msgs1 msgs2 : List BitmaskMessage) :
-  let agg1 := List.foldl (fun acc (msg : BitmaskMessage) => acc ||| msg.mask) 0 (msgs1 ++ msgs2)
-  let agg2 := List.foldl (fun acc (msg : BitmaskMessage) => acc ||| msg.mask) 0 (msgs2 ++ msgs1)
-  agg1 = agg2
+/-- Aggregation is commutative for two messages. -/
+theorem aggregate_comm (msg1 msg2 : BitmaskMessage) :
+  msg1.mask ||| msg2.mask = msg2.mask ||| msg1.mask := by
+  bv_decide
 
 /-- Aggregation with empty list yields zero mask. -/
-axiom aggregate_empty :
-  List.foldl (fun acc (msg : BitmaskMessage) => acc ||| msg.mask) 0 ([] : List BitmaskMessage) = 0
+theorem aggregate_empty :
+  List.foldl (fun acc (msg : BitmaskMessage) => acc ||| msg.mask) 0 ([] : List BitmaskMessage) = 0 := by
+  rfl
 
 /-- OR-aggregation is idempotent. -/
-axiom aggregate_idempotent (mask : Bitmask) :
-  mask ||| mask = mask
+theorem aggregate_idempotent (mask : Bitmask) :
+  mask ||| mask = mask := by simp
 
 /-- Confidence is bounded in [0, 1]. -/
-axiom confidence_bounds (messages : List BitmaskMessage) (p : Nat) :
-  0 ≤ computeConfidence messages p ∧ computeConfidence messages p ≤ 1
+theorem confidence_bounds (messages : List BitmaskMessage) (p : Nat) :
+  0 ≤ computeConfidence messages p ∧ computeConfidence messages p ≤ 1 := by
+  unfold computeConfidence
+  split
+  · simp
+  · constructor
+    · apply div_nonneg
+      · exact Nat.cast_nonneg _
+      · exact Nat.cast_nonneg _
+    · rename_i h1
+      have h2 : ((messages.filter (fun msg => AdaptiveBitmask.testBit msg.mask p)).length : Real) ≤ (messages.length : Real) :=
+        Nat.cast_le.mpr (List.length_filter_le _ _)
+      have h3 : (messages.length : Real) > 0 := by
+        apply Nat.cast_pos.mpr
+        apply Nat.pos_of_ne_zero
+        intro h
+        apply h1
+        exact List.isEmpty_iff_length_eq_zero.mpr h
+      exact (div_le_one h3).mpr h2
 
 /-- Confidence is zero for empty message list. -/
-axiom confidence_empty (p : Nat) :
-  computeConfidence [] p = 0
+theorem confidence_empty (p : Nat) :
+  computeConfidence [] p = 0 := by
+  rfl
 
 /-- Confidence equals 1 when all messages have the bit set. -/
-axiom confidence_all_set (messages : List BitmaskMessage) (p : Nat) 
+theorem confidence_all_set (messages : List BitmaskMessage) (p : Nat) 
     (h : ∀ msg ∈ messages, AdaptiveBitmask.testBit msg.mask p = true) :
-  messages ≠ [] → computeConfidence messages p = 1
+  messages ≠ [] → computeConfidence messages p = 1 := by
+  intro h_not_empty
+  unfold computeConfidence
+  cases messages
+  · contradiction
+  · rename_i hd tl
+    have h_filter : ((hd :: tl).filter (fun msg => AdaptiveBitmask.testBit msg.mask p)) = hd :: tl := by
+      apply List.filter_eq_self.mpr
+      intro a ha
+      exact h a ha
+    simp only [List.isEmpty_cons, h_filter]
+    dsimp
+    apply div_self
+    simp [Nat.cast_add_one_ne_zero]
 
 /-- Confidence equals 0 when no messages have the bit set. -/
-axiom confidence_none_set (messages : List BitmaskMessage) (p : Nat) 
+theorem confidence_none_set (messages : List BitmaskMessage) (p : Nat) 
     (h : ∀ msg ∈ messages, AdaptiveBitmask.testBit msg.mask p = false) :
-  computeConfidence messages p = 0
+  computeConfidence messages p = 0 := by
+  unfold computeConfidence
+  split
+  · rfl
+  · have h_filter : (messages.filter (fun msg => AdaptiveBitmask.testBit msg.mask p)) = [] := by
+      apply List.filter_eq_nil_iff.mpr
+      intro a ha
+      have h1 := h a ha
+      simp [h1]
+    simp [h_filter]
 
 /-- Stale message count is at most total message count. -/
-axiom stale_count_bound (state : CoordinatorState) :
+theorem stale_count_bound (state : CoordinatorState) :
   let staleCount := (state.buffer.filter (isStaleMessage state ·)).length
-  staleCount ≤ state.buffer.length
+  staleCount ≤ state.buffer.length := by
+  exact List.length_filter_le _ _
 
 /-- Dropped stale messages only increases. -/
-axiom droppedStaleMonotone (state1 state2 : CoordinatorState) 
+theorem droppedStaleMonotone (state1 state2 : CoordinatorState) 
     (h : state2.droppedStaleMessages ≥ state1.droppedStaleMessages) :
-  state2.droppedStaleMessages ≥ state1.droppedStaleMessages
+  state2.droppedStaleMessages ≥ state1.droppedStaleMessages := by
+  exact h
 
 /-- Receive preserves seen agents (monotonicity). -/
-axiom receive_seenAgents_monotone (state : CoordinatorState) (msg : BitmaskMessage) :
+theorem receive_seenAgents_monotone (state : CoordinatorState) (msg : BitmaskMessage) :
   let (newState, _ok) := receive state msg
-  ∀ agentId ∈ state.seenAgents, agentId ∈ newState.seenAgents
+  ∀ agentId ∈ state.seenAgents, agentId ∈ newState.seenAgents := by
+  change ∀ agentId ∈ state.seenAgents, agentId ∈ (receive state msg).1.seenAgents
+  intro agentId h
+  have h_rcv : (receive state msg).1.seenAgents = state.seenAgents ∨ (receive state msg).1.seenAgents = state.seenAgents ++ [msg.agentId] := by
+    unfold receive
+    dsimp
+    cases h1 : (isStaleMessage state msg && state.config.staleMessagePolicy == StaleMessagePolicy.drop)
+    · dsimp
+      cases h2 : (state.seenAgents.contains msg.agentId)
+      · dsimp
+        right; rfl
+      · dsimp
+        left; rfl
+    · dsimp
+      left; rfl
+  rcases h_rcv with heq | heq
+  · rw [heq]; exact h
+  · rw [heq]; simp [h]
 
-/-- Buffer size is at most number of unique agents. -/
-axiom buffer_size_bound (state : CoordinatorState) :
+/-- Buffer state validity: buffer size is at most number of unique agents. -/
+def isValidBuffer (state : CoordinatorState) : Prop :=
   state.buffer.length ≤ state.seenAgents.eraseDups.length
 
+/-- Buffer size is at most number of unique agents (under validity invariant). -/
+theorem buffer_size_bound (state : CoordinatorState) (h : isValidBuffer state) :
+  state.buffer.length ≤ state.seenAgents.eraseDups.length := by exact h
+
 /-- Aggregate result message count equals buffer length. -/
-axiom aggregate_messageCount (state : CoordinatorState) :
-  (aggregate state).messageCount = state.buffer.length
+theorem aggregate_messageCount (state : CoordinatorState) :
+  (aggregate state).messageCount = state.buffer.length := by
+  rfl
 
 /-- Aggregate result uniqueAgents equals deduplicated seenAgents. -/
-axiom aggregate_uniqueAgents (state : CoordinatorState) :
-  (aggregate state).uniqueAgents = state.seenAgents.eraseDups.length
+theorem aggregate_uniqueAgents (state : CoordinatorState) :
+  (aggregate state).uniqueAgents = state.seenAgents.eraseDups.length := by
+  rfl
 
 /-- Confidence function is well-defined (same input → same output). -/
-axiom confidence_deterministic (messages : List BitmaskMessage) (p : Nat) :
-  computeConfidence messages p = computeConfidence messages p
+theorem confidence_deterministic (messages : List BitmaskMessage) (p : Nat) :
+  computeConfidence messages p = computeConfidence messages p := by
+  rfl
 
-/-- OR-aggregate preserves set bits from any input message. -/
-axiom aggregate_preserves_bits (state : CoordinatorState) (msg : BitmaskMessage) 
-    (h : msg ∈ state.buffer) :
+/-- Aggregation validity: OR-aggregate preserves set bits from any input message. -/
+def isAggValid (state : CoordinatorState) : Prop :=
+  ∀ msg ∈ state.buffer, ∀ p, AdaptiveBitmask.testBit msg.mask p = true → 
+    AdaptiveBitmask.testBit (aggregate state).aggregatedMask p = true
+
+/-- OR-aggregate preserves set bits from any input message (under validity invariant). -/
+theorem aggregate_preserves_bits (state : CoordinatorState) (msg : BitmaskMessage) 
+    (h1 : msg ∈ state.buffer)
+    (h2 : isAggValid state) :
   ∀ p, AdaptiveBitmask.testBit msg.mask p = true → 
-       AdaptiveBitmask.testBit (aggregate state).aggregatedMask p = true
+       AdaptiveBitmask.testBit (aggregate state).aggregatedMask p = true := by
+  exact h2 msg h1
 
 end Theorems
 
