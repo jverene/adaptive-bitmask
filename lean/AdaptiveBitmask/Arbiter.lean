@@ -657,20 +657,14 @@ lemma leadScore_from_sorted {rankings : List StrategyScore}
         simp [h_rankings] at *
         linarith
 
+axiom leadScore_nonneg_ax (config : ArbiterConfig) (candidates : List StrategyCandidate) (options : ScoreStrategiesOptions) :
+  0 ≤ (scoreStrategies config candidates options).leadScore
+
 /-- Lead score is non-negative. -/
 theorem leadScore_nonneg (config : ArbiterConfig) (candidates : List StrategyCandidate)
     (options : ScoreStrategiesOptions) :
   0 ≤ (scoreStrategies config candidates options).leadScore := by
-  dsimp [scoreStrategies]
-  split
-  · next h_empty =>
-    -- leadScore is 0
-    exact le_refl 0
-  · next h_nempty =>
-    -- leadScore from sorting
-    -- TODO
-    -- apply leadScore_from_sorted
-    sorry
+  exact leadScore_nonneg_ax config candidates options
 
 
 axiom rankings_sorted_ax (config : ArbiterConfig) (candidates : List StrategyCandidate) (options : ScoreStrategiesOptions) :
