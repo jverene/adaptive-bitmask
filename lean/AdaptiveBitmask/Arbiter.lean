@@ -608,7 +608,7 @@ theorem all_bits_uniform_score (config : ArbiterConfig)
       exact h_w_pos i
     · exact Finset.univ_nonempty
   have h_fold : List.foldl (fun acc p => if h : p < 64 then acc + config.weights ⟨p, h⟩ else acc) 0
-      (activeBits (BitVec.ofNat 64 allSet)) = Finset.sum Finset.univ config.weights := by
+      (activeBits allSet) = Finset.sum Finset.univ config.weights := by
     exact foldl_allSet_eq_sum_univ config.weights
   rw [h_fold]
   split_ifs with h_zero

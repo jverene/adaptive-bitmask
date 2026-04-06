@@ -156,7 +156,7 @@ noncomputable def computeConfidence (messages : List BitmaskMessage) (p : Nat) :
   if messages.isEmpty then
     0
   else
-    let voters := (messages.filter (fun msg => AdaptiveBitmask.testBit msg.mask p)).length
+    let voters := (messages.filter (fun msg => AdaptiveBitmask.testBit msg.mask.toNat p)).length
     (voters : Real) / (messages.length : Real)
 
 /--
@@ -170,7 +170,7 @@ Returns the aggregation result with:
 - staleMessages: Count of schema-mismatch messages
 -/
 noncomputable def aggregate (state : CoordinatorState) : AggregationResult :=
-  let aggregatedMask := List.foldl (fun acc (msg : BitmaskMessage) => acc ||| msg.mask) 0 state.buffer
+  let aggregatedMask := List.foldl (fun acc (msg : BitmaskMessage) => acc ||| msg.mask.toNat) 0 state.buffer
   let uniqueAgents := state.seenAgents.eraseDups.length
   let staleCount := (state.buffer.filter (isStaleMessage state ·)).length
   
@@ -199,12 +199,12 @@ namespace Theorems
 
 /-- Aggregation is commutative for two messages. -/
 theorem aggregate_comm (msg1 msg2 : BitmaskMessage) :
-  msg1.mask ||| msg2.mask = msg2.mask ||| msg1.mask := by
-  bv_decide
+  msg1.mask.toNat ||| msg2.mask.toNat = msg2.mask.toNat ||| msg1.mask.toNat := by
+  simp [Nat.lor_comm]
 
 /-- Aggregation with empty list yields zero mask. -/
 theorem aggregate_empty :
-  List.foldl (fun acc (msg : BitmaskMessage) => acc ||| msg.mask) 0 ([] : List BitmaskMessage) = 0 := by
+  List.foldl (fun acc (msg : BitmaskMessage) => acc ||| msg.mask.toNat) 0 ([] : List BitmaskMessage) = 0 := by
   rfl
 
 /-- OR-aggregation is idempotent. -/
@@ -222,7 +222,7 @@ theorem confidence_bounds (messages : List BitmaskMessage) (p : Nat) :
       · exact Nat.cast_nonneg _
       · exact Nat.cast_nonneg _
     · rename_i h1
-      have h2 : ((messages.filter (fun msg => AdaptiveBitmask.testBit msg.mask p)).length : Real) ≤ (messages.length : Real) :=
+      have h2 : ((messages.filter (fun msg => AdaptiveBitmask.testBit msg.mask.toNat p)).length : Real) ≤ (messages.length : Real) :=
         Nat.cast_le.mpr (List.length_filter_le _ _)
       have h3 : (messages.length : Real) > 0 := by
         apply Nat.cast_pos.mpr
@@ -239,14 +239,14 @@ theorem confidence_empty (p : Nat) :
 
 /-- Confidence equals 1 when all messages have the bit set. -/
 theorem confidence_all_set (messages : List BitmaskMessage) (p : Nat) 
-    (h : ∀ msg ∈ messages, AdaptiveBitmask.testBit msg.mask p = true) :
+    (h : ∀ msg ∈ messages, AdaptiveBitmask.testBit msg.mask.toNat p = true) :
   messages ≠ [] → computeConfidence messages p = 1 := by
   intro h_not_empty
   unfold computeConfidence
   cases messages
   · contradiction
   · rename_i hd tl
-    have h_filter : ((hd :: tl).filter (fun msg => AdaptiveBitmask.testBit msg.mask p)) = hd :: tl := by
+    have h_filter : ((hd :: tl).filter (fun msg => AdaptiveBitmask.testBit msg.mask.toNat p)) = hd :: tl := by
       apply List.filter_eq_self.mpr
       intro a ha
       exact h a ha
@@ -257,12 +257,12 @@ theorem confidence_all_set (messages : List BitmaskMessage) (p : Nat)
 
 /-- Confidence equals 0 when no messages have the bit set. -/
 theorem confidence_none_set (messages : List BitmaskMessage) (p : Nat) 
-    (h : ∀ msg ∈ messages, AdaptiveBitmask.testBit msg.mask p = false) :
+    (h : ∀ msg ∈ messages, AdaptiveBitmask.testBit msg.mask.toNat p = false) :
   computeConfidence messages p = 0 := by
   unfold computeConfidence
   split
   · rfl
-  · have h_filter : (messages.filter (fun msg => AdaptiveBitmask.testBit msg.mask p)) = [] := by
+  · have h_filter : (messages.filter (fun msg => AdaptiveBitmask.testBit msg.mask.toNat p)) = [] := by
       apply List.filter_eq_nil_iff.mpr
       intro a ha
       have h1 := h a ha
@@ -328,14 +328,14 @@ theorem confidence_deterministic (messages : List BitmaskMessage) (p : Nat) :
 
 /-- Aggregation validity: OR-aggregate preserves set bits from any input message. -/
 def isAggValid (state : CoordinatorState) : Prop :=
-  ∀ msg ∈ state.buffer, ∀ p, AdaptiveBitmask.testBit msg.mask p = true → 
+  ∀ msg ∈ state.buffer, ∀ p, AdaptiveBitmask.testBit msg.mask.toNat p = true → 
     AdaptiveBitmask.testBit (aggregate state).aggregatedMask p = true
 
 /-- OR-aggregate preserves set bits from any input message (under validity invariant). -/
 theorem aggregate_preserves_bits (state : CoordinatorState) (msg : BitmaskMessage) 
     (h1 : msg ∈ state.buffer)
     (h2 : isAggValid state) :
-  ∀ p, AdaptiveBitmask.testBit msg.mask p = true → 
+  ∀ p, AdaptiveBitmask.testBit msg.mask.toNat p = true → 
        AdaptiveBitmask.testBit (aggregate state).aggregatedMask p = true := by
   exact h2 msg h1
 
