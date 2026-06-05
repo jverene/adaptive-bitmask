@@ -401,6 +401,14 @@ export class HttpTransport {
     });
   }
 
+  getPort(): number | undefined {
+    const addr = this.server.address();
+    if (typeof addr === 'object' && addr !== null) {
+      return addr.port;
+    }
+    return undefined;
+  }
+
   getMetrics(): MetricsCollector {
     return this.metrics;
   }
