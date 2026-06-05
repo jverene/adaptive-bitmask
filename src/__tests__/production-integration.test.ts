@@ -45,14 +45,14 @@ describe('Production Integration Tests', () => {
 
     // Setup transport layers on different ports
     wsTransport = createWebSocketTransport({
-      port: 8082,
+      port: 0,
       maxConnections: 100,
       connectionTimeoutMs: 5000,
       messageTimeoutMs: 1000
     });
 
     httpTransport = createHttpTransport({
-      port: 8083,
+      port: 0,
       requestTimeoutMs: 2000,
       rateLimitPerMinute: 1000
     });
