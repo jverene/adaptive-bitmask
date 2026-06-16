@@ -3,6 +3,7 @@ import AdaptiveBitmask.Schema
 import AdaptiveBitmask.Message
 import AdaptiveBitmask.Coordinator
 import AdaptiveBitmask.Arbiter
+import AdaptiveBitmask.TestComm
 
 -- Adaptive Bitmask Protocol Formal Verification
 -- 
