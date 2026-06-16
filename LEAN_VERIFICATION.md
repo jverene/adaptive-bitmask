@@ -36,7 +36,7 @@ npm run lean:build
 # Run formal verification tests
 npm run lean:test
 
-# Check code formatting
+# Check code formatting (currently a no-op; no Lean formatter is configured)
 npm run lean:format:check
 
 # Full verification (build + test)
@@ -47,8 +47,8 @@ npm run verify:math
 
 ```
 lean/
-├── lakefile.toml          # Lean project configuration
-├── lean-toolchain         # Lean version (v4.15.0)
+├── lakefile.lean          # Lean project configuration
+├── lean-toolchain         # Lean version (v4.29.0-rc6)
 ├── AdaptiveBitmask/       # Core library
 │   ├── Basic.lean         # Bitmask primitives
 │   ├── Schema.lean        # Schema management & collision theory
@@ -64,10 +64,10 @@ lean/
 
 | TypeScript Module | Lean Formalization | Status | Key Theorems |
 |------------------|-------------------|--------|--------------|
-| `bitmask.ts` | `Basic.lean` | ✅ Complete | `setBit_test_true`, `merge_comm`, `serialize_roundtrip` |
+| `bitmask.ts` | `Basic.lean` | ✅ Complete | `setBit_preserves_other`, `merge_comm`, `serialize_roundtrip` |
 | `schema.ts` | `Schema.lean` | ✅ Complete | `collision_rate_80`, `expected_excluded_128` |
 | `message.ts` | `Message.lean` | ✅ Complete | `message_roundtrip`, `wireSize_correct` |
-| `coordinator.ts` | `Coordinator.lean` | ✅ Complete | `aggregate_comm`, `confidence_bounds` |
+| `coordinator.ts` | `Coordinator.lean` | ✅ Complete | `aggregate_comm` (two-message), `confidence_bounds` |
 | `arbiter.ts` | `Arbiter.lean` | ✅ Complete | `raw_score_bounds`, `composite_score_bounds` |
 
 ### Proven Properties
@@ -75,16 +75,17 @@ lean/
 #### Bitmask Primitives (`Basic.lean`)
 
 ```lean
--- Setting a bit makes it test true
-theorem setBit_test_true (mask : Bitmask) (p : Nat) (h : p < 64) :
-  testBit (setBit mask p) p = true
+-- Setting a bit doesn't affect other bits
+theorem setBit_preserves_other (mask : Bitmask) (p q : Nat)
+  (hp : p < BITMASK_WIDTH) (hq : q < BITMASK_WIDTH) (hne : p ≠ q) :
+  testBit (setBit mask p) q = testBit mask q
 
 -- Merge (OR) is commutative
 theorem merge_comm (a b : Bitmask) :
   merge a b = merge b a
 
--- Serialization roundtrip
-theorem serialize_roundtrip (mask : Bitmask) :
+-- Serialization roundtrip (for valid 64-bit masks)
+theorem serialize_roundtrip (mask : Bitmask) (h : mask < 2 ^ BITMASK_WIDTH) :
   fromBytes (toBytes mask) = mask
 ```
 
@@ -116,16 +117,16 @@ theorem deserialize_length_check (bytes : List UInt8) :
   bytes.length ≠ 24 → deserializeMessage bytes = none
 
 -- Valid messages roundtrip
-theorem message_roundtrip (msg : BitmaskMessage) :
+theorem message_roundtrip (msg : BitmaskMessage) (h : msg.isValid) :
   deserializeMessage (serializeMessage msg) = some msg
 ```
 
 #### Coordinator (`Coordinator.lean`)
 
 ```lean
--- Aggregation is commutative (order-independent)
-theorem aggregate_comm (msgs1 msgs2 : List BitmaskMessage) :
-  aggregate (msgs1 ++ msgs2) = aggregate (msgs2 ++ msgs1)
+-- Two-message OR aggregation is commutative
+theorem aggregate_comm (msg1 msg2 : BitmaskMessage) :
+  msg1.mask.toNat ||| msg2.mask.toNat = msg2.mask.toNat ||| msg1.mask.toNat
 
 -- Confidence is bounded in [0, 1]
 theorem confidence_bounds (messages : List BitmaskMessage) (p : Nat) :
@@ -200,8 +201,7 @@ def weightedScore (config : ArbiterConfig) (mask : Bitmask) : Real :=
 
 **Properties verified**:
 - Score bounded in [0, 1] for non-negative weights
-- Monotonicity with respect to active bits
-- Uniform weights give score = activeBits/64
+- Uniform positive weights with all bits set give score = 1 (`all_bits_uniform_score`)
 
 ### Composite Score
 
@@ -220,8 +220,8 @@ theorem composite_score_bounds (rawScore confidenceScore : Real)
 
 The Lean verification runs automatically on:
 
-1. **Push to main/master** (when Lean files change)
-2. **Pull requests** (when Lean files change)
+1. **Push to main/master**
+2. **Pull requests to main/master**
 
 ### Workflow Steps
 
@@ -230,7 +230,7 @@ The Lean verification runs automatically on:
 3. Fetch Mathlib cache
 4. Build Lean project (`lake build`)
 5. Run tests (`lake test`)
-6. Check formatting (`lake format --check`)
+6. Check formatting (`npm run lean:format:check`; currently a no-op since no Lean formatter is configured)
 
 ### Adding New Proofs
 
@@ -263,7 +263,7 @@ theorem incomplete_proof (x : Nat) : x = x := by
   admit  -- TODO: complete this proof
 ```
 
-**Note**: The CI will fail if temporary proof placeholders remain. All proofs must be complete for merge.
+**Note**: `admit`/`sorry` placeholders cause CI to fail if they are part of the built library. Some properties in `Schema.lean` and `Arbiter.lean` are currently stated as `axiom`s (unproven assumptions) and used to prove related theorems; these are accepted by the Lean kernel but are not mechanically derived.
 
 ## Dependencies
 
@@ -282,10 +282,10 @@ theorem incomplete_proof (x : Nat) : x = x := by
 ### Formatting Issues
 
 ```bash
-# Auto-format all files
+# Auto-format all files (currently a no-op; no Lean formatter is configured)
 npm run lean:format
 
-# Check if formatting is correct
+# Check if formatting is correct (currently a no-op; no Lean formatter is configured)
 npm run lean:format:check
 ```
 
