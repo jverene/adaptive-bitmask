@@ -335,7 +335,7 @@ export class MetricsCollector {
 export class HealthChecker {
   private metrics: MetricsCollector;
   private logger = Logger.getInstance();
-  private version: string = '0.2.0-rc.0';
+  private version: string = '2.0.5';
 
   constructor(metrics: MetricsCollector) {
     this.metrics = metrics;

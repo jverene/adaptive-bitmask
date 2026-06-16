@@ -276,7 +276,7 @@ export class HttpTransport {
       status: 'HEALTHY',
       uptime: metrics.uptimeMs,
       timestamp: Date.now(),
-      version: '0.2.0-rc.0',
+      version: '2.0.5',
       metrics: {
         messagesProcessed: metrics.messagesProcessed,
         memoryUsageMB: metrics.memoryUsageMB,
