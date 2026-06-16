@@ -9,7 +9,7 @@ Current package version: `2.0.5`.
 
 - Fixed 24-byte wire format for coordination messages
 - Sub-10ms coordination targets for multi-agent workloads
-- Core package with no runtime dependencies
+- Core coordination engine has no runtime dependencies
 - Optional AI workflow integration through `adaptive-bitmask/ai`
 - Built-in support for telemetry, transport helpers, and schema versioning
 
@@ -56,17 +56,17 @@ Key observability hooks:
 
 ## Features
 
-- Sub-10ms coordination with benchmarked averages as low as `0.08ms`
-- Zero runtime dependencies in the core engine
+- Sub-10ms coordination with benchmarked averages as low as `0.09ms`
+- Zero runtime dependencies in the core coordination engine
 - Live dashboard support for monitoring agent reasoning and consensus
 - Production-oriented error handling, circuit breakers, and graceful degradation
 - Built-in health checks, metrics collection, and structured logging
 - WebSocket and HTTP transport layers
-- Security-oriented hooks for validation, rate limiting, and authentication
+- Security-oriented hooks for validation and rate limiting
 
 ## Formal Verification (Lean 4)
 
-The core mathematical foundations of the `adaptive-bitmask` protocol are mechanically proven using the Lean 4 theorem prover. This ensures absolute correctness for mission-critical properties.
+The core mathematical foundations of the `adaptive-bitmask` protocol are mechanically proven using the Lean 4 theorem prover. Key properties such as bitwise roundtrips, score bounds, and aggregation commutativity are formally verified; a small number of higher-level properties are currently assumed as axioms.
 
 **Benefits:**
 - **Mathematical Certainty:** Core operations like bitwise consensus and threshold logic are proven correct for all possible inputs.
@@ -113,13 +113,15 @@ const moderationCognition = new SharedCognition({
 
 ### Docker
 
+`dist/index.js` is the library bundle; it does not start a server by itself. The examples below assume an entry point (for example, `server.ts`) that creates and starts a transport.
+
 ```dockerfile
 FROM node:20-alpine
 WORKDIR /app
 COPY . .
 RUN npm ci --only=production
 EXPOSE 8080 8081
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/server.js"]
 ```
 
 ### Kubernetes
@@ -139,6 +141,7 @@ spec:
       containers:
         - name: adaptive-bitmask
           image: adaptive-bitmask:latest
+          command: ["node", "dist/server.js"]
           ports:
             - containerPort: 8080
             - containerPort: 8081
@@ -249,7 +252,7 @@ See [`examples/transport.ts`](./examples/transport.ts) for an end-to-end example
 {
   "status": "HEALTHY",
   "uptime": 3600000,
-  "version": "1.1.1",
+  "version": "2.0.5",
   "metrics": {
     "messagesProcessed": 1000000,
     "memoryUsageMB": 256,
