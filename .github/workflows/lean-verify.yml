@@ -26,7 +26,7 @@ jobs:
           path: |
             ~/.elan
             ~/.cache/lake
-          key: lean-${{ hashFiles('lean/lean-toolchain') }}-${{ hashFiles('lean/lakefile.toml') }}
+          key: lean-${{ hashFiles('lean/lean-toolchain') }}-${{ hashFiles('lean/lakefile.lean') }}
           restore-keys: |
             lean-
       
